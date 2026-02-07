@@ -42,12 +42,11 @@ class MockPredictor:
         self.call_count = 0
 
     def predict(
-        self, observation: dict[str, np.ndarray],
+        self,
+        observation: dict[str, np.ndarray],
     ) -> tuple[np.ndarray, float]:
         self.call_count += 1
-        actions = self._rng.randn(self.num_candidates, self.action_dim).astype(
-            np.float32
-        )
+        actions = self._rng.randn(self.num_candidates, self.action_dim).astype(np.float32)
         return actions, self.value
 
 
@@ -77,7 +76,8 @@ class MockEnvironmentModel:
         self._state = _FakeState(step_count=state.step_count)
 
     def step(
-        self, action: np.ndarray,
+        self,
+        action: np.ndarray,
     ) -> tuple[dict[str, np.ndarray], float, bool]:
         self._state.step_count += 1
         obs = {
@@ -230,8 +230,11 @@ class TestProgressiveWidening:
 
     def test_expand_node_respects_budget(self) -> None:
         config = MCTSConfig(
-            num_simulations=1, max_children=3,
-            c_puct=1.0, temperature=1.0, discount=0.99,
+            num_simulations=1,
+            max_children=3,
+            c_puct=1.0,
+            temperature=1.0,
+            discount=0.99,
         )
         predictor = MockPredictor(action_dim=6, num_candidates=10)
         engine = MCTSEngine(config, predictor)
@@ -243,8 +246,11 @@ class TestProgressiveWidening:
 
     def test_expand_node_no_op_when_full(self) -> None:
         config = MCTSConfig(
-            num_simulations=1, max_children=2,
-            c_puct=1.0, temperature=1.0, discount=0.99,
+            num_simulations=1,
+            max_children=2,
+            c_puct=1.0,
+            temperature=1.0,
+            discount=0.99,
         )
         predictor = MockPredictor(action_dim=6, num_candidates=10)
         engine = MCTSEngine(config, predictor)
@@ -285,8 +291,11 @@ class TestGreedySelection:
         """With temperature 0, _select_action must pick the child with the
         highest visit count."""
         config = MCTSConfig(
-            num_simulations=1, max_children=8,
-            c_puct=1.0, temperature=0.0, discount=0.99,
+            num_simulations=1,
+            max_children=8,
+            c_puct=1.0,
+            temperature=0.0,
+            discount=0.99,
         )
         predictor = MockPredictor(action_dim=6)
         engine = MCTSEngine(config, predictor)
@@ -319,8 +328,11 @@ class TestGreedySelection:
     def test_greedy_is_deterministic(self) -> None:
         """Greedy selection with the same tree must always pick the same child."""
         config = MCTSConfig(
-            num_simulations=1, max_children=8,
-            c_puct=1.0, temperature=0.0, discount=0.99,
+            num_simulations=1,
+            max_children=8,
+            c_puct=1.0,
+            temperature=0.0,
+            discount=0.99,
         )
         predictor = MockPredictor(action_dim=6)
         engine = MCTSEngine(config, predictor)
@@ -357,7 +369,8 @@ class TestSearchStatistics:
         assert expected_keys.issubset(info.keys())
 
     def test_root_visits_equals_simulations_plus_one(
-        self, mcts_config: MCTSConfig,
+        self,
+        mcts_config: MCTSConfig,
     ) -> None:
         """Root visit count = 1 (initial) + num_simulations (backup)."""
         predictor = MockPredictor(action_dim=6)
@@ -380,8 +393,11 @@ class TestSearchStatistics:
     def test_gather_stats_empty_root(self) -> None:
         """When root has no children, stats should contain only root_visits."""
         config = MCTSConfig(
-            num_simulations=1, max_children=4,
-            c_puct=1.0, temperature=1.0, discount=0.99,
+            num_simulations=1,
+            max_children=4,
+            c_puct=1.0,
+            temperature=1.0,
+            discount=0.99,
         )
         predictor = MockPredictor(action_dim=6)
         engine = MCTSEngine(config, predictor)
@@ -409,8 +425,11 @@ class TestBackup:
 
     def test_backup_increments_visit_counts(self) -> None:
         config = MCTSConfig(
-            num_simulations=1, max_children=4,
-            c_puct=1.0, temperature=1.0, discount=0.99,
+            num_simulations=1,
+            max_children=4,
+            c_puct=1.0,
+            temperature=1.0,
+            discount=0.99,
         )
         predictor = MockPredictor(action_dim=6)
         engine = MCTSEngine(config, predictor)
@@ -422,8 +441,11 @@ class TestBackup:
 
     def test_backup_accumulates_value(self) -> None:
         config = MCTSConfig(
-            num_simulations=1, max_children=4,
-            c_puct=1.0, temperature=1.0, discount=1.0,  # no discounting
+            num_simulations=1,
+            max_children=4,
+            c_puct=1.0,
+            temperature=1.0,
+            discount=1.0,  # no discounting
         )
         predictor = MockPredictor(action_dim=6)
         engine = MCTSEngine(config, predictor)
@@ -438,8 +460,11 @@ class TestBackup:
     def test_backup_with_discount(self) -> None:
         discount = 0.5
         config = MCTSConfig(
-            num_simulations=1, max_children=4,
-            c_puct=1.0, temperature=1.0, discount=discount,
+            num_simulations=1,
+            max_children=4,
+            c_puct=1.0,
+            temperature=1.0,
+            discount=discount,
         )
         predictor = MockPredictor(action_dim=6)
         engine = MCTSEngine(config, predictor)
@@ -454,8 +479,11 @@ class TestBackup:
 
     def test_backup_with_rewards(self) -> None:
         config = MCTSConfig(
-            num_simulations=1, max_children=4,
-            c_puct=1.0, temperature=1.0, discount=1.0,
+            num_simulations=1,
+            max_children=4,
+            c_puct=1.0,
+            temperature=1.0,
+            discount=1.0,
         )
         predictor = MockPredictor(action_dim=6)
         engine = MCTSEngine(config, predictor)
@@ -509,10 +537,12 @@ class TestGetActionProbs:
         # controlled testing.
         root = MCTSNode()
         root.children[0] = MCTSNode(
-            visit_count=3, action=np.zeros(6, dtype=np.float32),
+            visit_count=3,
+            action=np.zeros(6, dtype=np.float32),
         )
         root.children[1] = MCTSNode(
-            visit_count=7, action=np.ones(6, dtype=np.float32),
+            visit_count=7,
+            action=np.ones(6, dtype=np.float32),
         )
         actions, probs = engine.get_action_probs(root)
         assert len(actions) == 2
@@ -524,10 +554,12 @@ class TestGetActionProbs:
         engine = MCTSEngine(mcts_config, predictor)
         root = MCTSNode()
         root.children[0] = MCTSNode(
-            visit_count=10, action=np.zeros(6, dtype=np.float32),
+            visit_count=10,
+            action=np.zeros(6, dtype=np.float32),
         )
         root.children[1] = MCTSNode(
-            visit_count=30, action=np.ones(6, dtype=np.float32),
+            visit_count=30,
+            action=np.ones(6, dtype=np.float32),
         )
         _, probs = engine.get_action_probs(root)
         assert probs[0] == pytest.approx(0.25)
@@ -552,8 +584,11 @@ class TestEdgeCases:
 
     def test_select_action_raises_on_empty_root(self) -> None:
         config = MCTSConfig(
-            num_simulations=1, max_children=4,
-            c_puct=1.0, temperature=1.0, discount=0.99,
+            num_simulations=1,
+            max_children=4,
+            c_puct=1.0,
+            temperature=1.0,
+            discount=0.99,
         )
         predictor = MockPredictor(action_dim=6)
         engine = MCTSEngine(config, predictor)
@@ -588,3 +623,83 @@ class TestEdgeCases:
         action, info = engine.search(_dummy_obs())
         assert action.shape == (6,)
         assert info["root_visits"] == 101.0
+
+
+# ===================================================================
+# MCTSEngine -- Dirichlet noise
+# ===================================================================
+
+
+class TestDirichletNoise:
+    """Tests for Dirichlet noise at root."""
+
+    def test_noise_modifies_priors(self, mcts_config: MCTSConfig) -> None:
+        """Dirichlet noise should modify child priors."""
+        predictor = MockPredictor(action_dim=6, num_candidates=8)
+        engine = MCTSEngine(mcts_config, predictor)
+
+        # Build root with children that have uniform priors
+        root = MCTSNode()
+        candidate_actions, _ = predictor.predict(_dummy_obs())
+        engine._expand_node(root, candidate_actions)
+
+        # Record initial priors (should all be uniform)
+        initial_priors = [child.prior for child in root.children.values()]
+        initial_prior = 1.0 / mcts_config.max_children
+        for prior in initial_priors:
+            assert prior == pytest.approx(initial_prior)
+
+        # Add Dirichlet noise
+        engine._add_dirichlet_noise(root)
+
+        # After noise: priors should differ from initial uniform
+        modified_priors = [child.prior for child in root.children.values()]
+        # At least some priors should have changed
+        assert any(abs(p - initial_prior) > 1e-6 for p in modified_priors), (
+            "Dirichlet noise should modify at least some priors"
+        )
+
+    def test_noise_sums_to_approximately_one(self, mcts_config: MCTSConfig) -> None:
+        """After Dirichlet noise, priors should still approximately sum to 1."""
+        predictor = MockPredictor(action_dim=6, num_candidates=8)
+        engine = MCTSEngine(mcts_config, predictor)
+
+        root = MCTSNode()
+        candidate_actions, _ = predictor.predict(_dummy_obs())
+        engine._expand_node(root, candidate_actions)
+
+        # Add Dirichlet noise
+        engine._add_dirichlet_noise(root)
+
+        # Priors should sum to approximately 1
+        prior_sum = sum(child.prior for child in root.children.values())
+        assert prior_sum == pytest.approx(1.0, abs=1e-6)
+
+    def test_epsilon_zero_no_noise(self) -> None:
+        """With dirichlet_epsilon=0, priors should remain at initial values."""
+        config = MCTSConfig(
+            num_simulations=10,
+            max_children=4,
+            c_puct=1.0,
+            temperature=1.0,
+            discount=0.99,
+            dirichlet_epsilon=0.0,  # No noise
+            dirichlet_alpha=0.3,
+        )
+        predictor = MockPredictor(action_dim=6, num_candidates=8)
+        engine = MCTSEngine(config, predictor)
+
+        root = MCTSNode()
+        candidate_actions, _ = predictor.predict(_dummy_obs())
+        engine._expand_node(root, candidate_actions)
+
+        # Record initial priors
+        initial_priors = [child.prior for child in root.children.values()]
+
+        # Add "noise" (but epsilon=0 so should be no-op)
+        engine._add_dirichlet_noise(root)
+
+        # Priors should be unchanged
+        final_priors = [child.prior for child in root.children.values()]
+        for init, final in zip(initial_priors, final_priors):
+            assert init == pytest.approx(final)

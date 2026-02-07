@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
+
+_PROJECT_ROOT = str(Path(__file__).resolve().parents[2])
 
 
 class TestSmoke:
@@ -23,7 +26,7 @@ class TestSmoke:
             capture_output=True,
             text=True,
             timeout=120,
-            cwd="/home/user/Alpha-space",
+            cwd=_PROJECT_ROOT,
         )
         assert result.returncode == 0, (
             f"Smoke test failed.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"

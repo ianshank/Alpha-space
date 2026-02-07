@@ -25,6 +25,7 @@ from src.mcts.engine import MCTSEngine
 from src.networks.policy_value_net import SpatialPolicyValueNetwork
 from src.replay_buffer.buffer import Episode, ReplayBuffer, Transition
 from src.utils.common import Timer, get_device, seed_everything
+from src.visualization.metrics_store import MetricsStore
 
 logger = structlog.get_logger(__name__)
 
@@ -124,7 +125,7 @@ class Trainer:
         # Checkpoint manager
         self._ckpt_mgr = CheckpointManager(
             checkpoint_dir=config.checkpoint_dir,
-            max_to_keep=10,
+            max_to_keep=config.training.max_checkpoints,
         )
 
         # Replay buffer
@@ -164,6 +165,9 @@ class Trainer:
             "entropy": [],
         }
 
+        # Metrics store for persistence (read by web UI)
+        self._metrics_store = MetricsStore(log_dir=config.log_dir)
+
     # ------------------------------------------------------------------ #
     # Public API
     # ------------------------------------------------------------------ #
@@ -202,12 +206,20 @@ class Trainer:
             )
 
             # --- Policy update ---
+            episode_metrics: dict[str, float] = {
+                "reward": episode.total_reward,
+                "length": float(episode.length),
+            }
             if len(self._replay) >= self._config.training.batch_size:
                 with Timer("policy_update"):
                     losses = self._update_policy()
                 self._metrics["policy_loss"].append(losses["policy_loss"])
                 self._metrics["value_loss"].append(losses["value_loss"])
                 self._metrics["entropy"].append(losses["entropy"])
+                episode_metrics.update(losses)
+
+            # --- Persist metrics for web UI ---
+            self._metrics_store.append(episode_idx, episode_metrics)
 
             # --- Checkpoint ---
             if (episode_idx + 1) % self._config.training.checkpoint_interval == 0:
@@ -260,13 +272,15 @@ class Trainer:
             # Step environment
             next_obs, reward, terminated, truncated, info = env.step(action)
 
-            # Store transition
+            # Store transition (including MCTS policy targets)
+            mcts_policy = mcts_info.get("action_probs")
             transition = Transition(
                 voxels=obs["voxels"],
                 proprio=obs["proprio"],
                 goal=obs["goal"],
                 action=action,
                 reward=reward,
+                mcts_policy=mcts_policy if isinstance(mcts_policy, np.ndarray) else None,
                 value_target=0.0,  # will be computed below
                 done=terminated or truncated,
             )
@@ -315,9 +329,7 @@ class Trainer:
             actions = torch.from_numpy(batch["action"]).float().to(self._device)
             value_targets = torch.from_numpy(batch["value_target"]).float().to(self._device)
 
-            log_probs, entropy, values = self._network.evaluate_actions(
-                voxels, proprio, actions
-            )
+            log_probs, entropy, values = self._network.evaluate_actions(voxels, proprio, actions)
 
             # Policy loss: negative log-likelihood (encourage MCTS actions)
             policy_loss = -log_probs.mean()
@@ -330,18 +342,14 @@ class Trainer:
 
             # Total loss
             loss = (
-                policy_loss
-                + cfg.value_loss_weight * value_loss
-                - cfg.entropy_weight * entropy_mean
+                policy_loss + cfg.value_loss_weight * value_loss - cfg.entropy_weight * entropy_mean
             )
 
             self._optimizer.zero_grad()
             loss.backward()
 
             # Gradient clipping
-            grad_norm = nn.utils.clip_grad_norm_(
-                self._network.parameters(), cfg.gradient_clip_norm
-            )
+            grad_norm = nn.utils.clip_grad_norm_(self._network.parameters(), cfg.gradient_clip_norm)
             log_tensor_stats("gradient_norm", torch.tensor([grad_norm.item()]))
 
             self._optimizer.step()
@@ -361,28 +369,27 @@ class Trainer:
     # Evaluation
     # ------------------------------------------------------------------ #
 
-    def _evaluate(self, episode_idx: int, num_episodes: int = 5) -> dict[str, float]:
+    def _evaluate(self, episode_idx: int, num_episodes: int | None = None) -> dict[str, float]:
         """Run greedy evaluation episodes (no MCTS, deterministic actions)."""
+        if num_episodes is None:
+            num_episodes = self._config.training.eval_episodes
         self._network.eval()
         rewards: list[float] = []
         successes: list[float] = []
+        eval_seed_offset = self._config.training.eval_seed_offset
 
         for i in range(num_episodes):
             env = make_env(self._config)
-            obs, _ = env.reset(seed=self._config.seed + 100_000 + i)
+            obs, _ = env.reset(seed=self._config.seed + eval_seed_offset + i)
             total_reward = 0.0
 
             for _ in range(self._config.environment.max_episode_steps):
                 with torch.no_grad():
-                    voxels_t = (
-                        torch.from_numpy(obs["voxels"]).unsqueeze(0).float().to(self._device)
-                    )
+                    voxels_t = torch.from_numpy(obs["voxels"]).unsqueeze(0).float().to(self._device)
                     proprio_t = (
                         torch.from_numpy(obs["proprio"]).unsqueeze(0).float().to(self._device)
                     )
-                    actions, _, _ = self._network.act(
-                        voxels_t, proprio_t, deterministic=True
-                    )
+                    actions, _, _ = self._network.act(voxels_t, proprio_t, deterministic=True)
                 action = actions.squeeze(0).cpu().numpy()
                 action = np.clip(action, -1.0, 1.0).astype(np.float32)
 
@@ -404,8 +411,8 @@ class Trainer:
     # ------------------------------------------------------------------ #
 
     def _latest_metrics(self) -> dict[str, float]:
-        """Return the last 100 episodes' mean metrics."""
-        window = 100
+        """Return the recent episodes' mean metrics."""
+        window = self._config.training.metrics_window
         result: dict[str, float] = {}
         for key, values in self._metrics.items():
             if values:

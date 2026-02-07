@@ -124,9 +124,14 @@ class TestCheckpointSave:
         ckpt = torch.load(path, map_location="cpu", weights_only=False)
 
         required = {
-            "version", "episode", "timestamp",
-            "policy_net_state_dict", "optimizer_state_dict",
-            "config", "metrics", "rng_states",
+            "version",
+            "episode",
+            "timestamp",
+            "policy_net_state_dict",
+            "optimizer_state_dict",
+            "config",
+            "metrics",
+            "rng_states",
         }
         assert required.issubset(ckpt.keys())
         assert ckpt["version"] == CURRENT_VERSION
@@ -166,9 +171,7 @@ class TestCheckpointLoad:
 
         # Load into a fresh network
         net2 = _make_net()
-        episode, loaded_config, metrics = mgr.load(
-            path, net2, device="cpu", restore_rng=False
-        )
+        episode, loaded_config, metrics = mgr.load(path, net2, device="cpu", restore_rng=False)
         assert episode == 5
         assert _state_dicts_equal(net.state_dict(), net2.state_dict())
 
@@ -348,9 +351,7 @@ class TestMigration:
         path = self._make_old_checkpoint(tmp_path, version="0.1.0")
         net = _make_net()
 
-        episode, config, metrics = mgr.load(
-            path, net, device="cpu", restore_rng=False
-        )
+        episode, config, metrics = mgr.load(path, net, device="cpu", restore_rng=False)
 
         # The migration should have added default reward config
         assert isinstance(config, SystemConfig)
@@ -550,3 +551,45 @@ class TestPruning:
 
         remaining = list(tmp_path.glob("episode_*.pt"))
         assert len(remaining) == 3
+
+
+# ================================================================== #
+# Corrupted checkpoint handling
+# ================================================================== #
+
+
+class TestCorruptedCheckpoints:
+    """Tests for handling corrupted checkpoint files."""
+
+    def test_truncated_file_raises(self, tmp_path: Path) -> None:
+        """A truncated checkpoint file should raise an error on load."""
+        mgr = CheckpointManager(checkpoint_dir=tmp_path)
+        net = _make_net()
+        opt = _make_optimizer(net)
+        config = _make_config()
+
+        # Save a valid checkpoint
+        path = mgr.save(net, opt, episode=1, config=config)
+
+        # Truncate the file to corrupt it
+        with open(path, "r+b") as f:
+            f.seek(0)
+            f.truncate(100)  # Keep only first 100 bytes
+
+        # Try to load it - should raise an error
+        net2 = _make_net()
+        with pytest.raises(Exception):  # torch.load raises various exceptions for corrupt files
+            mgr.load(path, net2, device="cpu", restore_rng=False)
+
+    def test_empty_file_raises(self, tmp_path: Path) -> None:
+        """An empty checkpoint file should raise an error on load."""
+        mgr = CheckpointManager(checkpoint_dir=tmp_path)
+        net = _make_net()
+
+        # Create an empty .pt file
+        empty_path = tmp_path / "empty.pt"
+        empty_path.touch()
+
+        # Try to load it - should raise an error
+        with pytest.raises(Exception):  # torch.load or unpickling will fail
+            mgr.load(empty_path, net, device="cpu", restore_rng=False)

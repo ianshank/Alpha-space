@@ -143,12 +143,14 @@ class MockZeroGEnv(ZeroGEnv):
         )
 
         # Proprioception: [pos(3), quat(4), vel(3), ang_vel(3)]
-        proprio = np.concatenate([
-            self._state.position,
-            self._state.orientation,
-            self._state.velocity,
-            self._state.angular_velocity,
-        ]).astype(np.float32)
+        proprio = np.concatenate(
+            [
+                self._state.position,
+                self._state.orientation,
+                self._state.velocity,
+                self._state.angular_velocity,
+            ]
+        ).astype(np.float32)
 
         goal = self._goal_pose.astype(np.float32)
 

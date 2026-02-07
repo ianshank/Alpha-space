@@ -42,9 +42,7 @@ def make_env(config: SystemConfig) -> ZeroGEnv:
     cls = _REGISTRY.get(sim_name)
     if cls is None:
         available = ", ".join(sorted(_REGISTRY))
-        raise ValueError(
-            f"Unknown simulator '{sim_name}'. Available: {available}"
-        )
+        raise ValueError(f"Unknown simulator '{sim_name}'. Available: {available}")
 
     env = cls(
         env_config=config.environment,

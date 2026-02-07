@@ -28,6 +28,16 @@ from src.config import NetworkConfig
 
 logger = structlog.get_logger(__name__)
 
+# ---------------------------------------------------------------------------
+# Named architecture constants
+# ---------------------------------------------------------------------------
+
+_VOXEL_CONV_KERNEL: int = 3
+_VOXEL_CONV_STRIDE: int = 2
+_VOXEL_BASE_CHANNELS: int = 64
+_VOXEL_MAX_CHANNELS: int = 256
+_VALUE_HEAD_REDUCTION: int = 2
+
 
 # ---------------------------------------------------------------------------
 # Building blocks
@@ -89,9 +99,16 @@ class VoxelEncoder(nn.Module):  # type: ignore[misc]
         layers: list[nn.Module] = []
         ch = in_channels
         for i in range(n_stages):
-            out_ch = min(64 * (2**i), 256)
+            out_ch = min(_VOXEL_BASE_CHANNELS * (2**i), _VOXEL_MAX_CHANNELS)
             layers += [
-                nn.Conv3d(ch, out_ch, kernel_size=3, stride=2, padding=1, bias=False),
+                nn.Conv3d(
+                    ch,
+                    out_ch,
+                    kernel_size=_VOXEL_CONV_KERNEL,
+                    stride=_VOXEL_CONV_STRIDE,
+                    padding=1,
+                    bias=False,
+                ),
                 nn.BatchNorm3d(out_ch),
                 nn.ReLU(inplace=True),
             ]
@@ -172,10 +189,11 @@ class ValueHead(nn.Module):  # type: ignore[misc]
 
     def __init__(self, in_features: int) -> None:
         super().__init__()
+        mid = in_features // _VALUE_HEAD_REDUCTION
         self.net = nn.Sequential(
-            nn.Linear(in_features, in_features // 2),
+            nn.Linear(in_features, mid),
             nn.ReLU(inplace=True),
-            nn.Linear(in_features // 2, 1),
+            nn.Linear(mid, 1),
         )
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:

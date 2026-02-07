@@ -4,8 +4,8 @@ An AlphaZero-style self-play reinforcement learning system for training agents t
 
 | Metric | Value |
 |--------|-------|
-| Tests | 462 passing |
-| Coverage | 87% |
+| Tests | 536 passing |
+| Coverage | 87%+ |
 | Python | 3.11+ |
 | PyTorch | 2.0+ |
 | Type Checking | mypy --strict |
@@ -22,14 +22,18 @@ This system extends AlphaZero from discrete 2D board games to **continuous 3D ze
 - **Dual-headed neural network** (3D CNN + MLP) for policy and value estimation
 - **Symplectic Euler** physics integration with momentum conservation validation
 - **Quaternion-based** orientation (Hamilton convention, `[w,x,y,z]`) to avoid gimbal lock
+- **Skill blending** — 5 handcrafted spacecraft control primitives blended with neural policy
+- **Agent abstraction** — Agent owns the gradient step; Trainer orchestrates episodes
 
 ### Key Design Principles
 
-- **No hardcoded values** — all hyperparameters flow through Pydantic v2 config models
+- **No hardcoded values** — all hyperparameters flow through Pydantic v2 config models; magic numbers extracted to named constants
 - **Backward-compatible checkpoints** — versioned schema with automatic migrations
 - **Pluggable simulators** — abstract Gymnasium interface with `register_env()` factory
+- **Registry/factory pattern** — skills, tools, and environments use decorator-based registries
 - **Production logging** — structured JSON via structlog, debug instrumentation decorators
-- **Comprehensive testing** — unit, integration, property-based (Hypothesis), and smoke tests
+- **Comprehensive testing** — 536 tests: unit, integration, property-based (Hypothesis), and smoke tests
+- **Cross-platform** — tested on Windows and Linux
 
 ---
 
@@ -114,11 +118,15 @@ tests/
 │   ├── test_config.py                   # Pydantic config validation
 │   ├── test_utils.py                    # Quaternion math, seeding, timer
 │   ├── test_networks.py                 # Policy/value network shapes
-│   ├── test_mcts.py                     # MCTS tree operations
-│   ├── test_physics.py                  # Zero-G dynamics, momentum
+│   ├── test_mcts.py                     # MCTS tree operations + Dirichlet noise
+│   ├── test_physics.py                  # Zero-G dynamics, momentum, gyroscopic effects
 │   ├── test_replay_buffer.py            # FIFO buffer, batch sampling
-│   ├── test_checkpointing.py            # Versioned save/load/migrate
-│   └── test_instrumentation.py          # Debug decorators
+│   ├── test_checkpointing.py            # Versioned save/load/migrate + corruption
+│   ├── test_instrumentation.py          # Debug decorators + structlog capture
+│   ├── test_agent.py                    # Agent construction, action selection, update
+│   ├── test_skills.py                   # All 5 skills: shape, direction, registry
+│   ├── test_tools.py                    # All 6 tools: sensors + planning
+│   └── test_metrics_store.py            # MetricsStore persistence + corruption
 ├── integration/                         # Multi-component tests
 │   ├── test_training_loop.py            # End-to-end training
 │   ├── test_evaluator.py               # Checkpoint evaluation
@@ -138,12 +146,11 @@ tests/
 # Lint
 ruff check src/ tests/
 
-# Type check (strict mode)
-mypy src/ --strict --allow-untyped-calls --allow-untyped-decorators --ignore-missing-imports
+# Format
+ruff format src/ tests/
 
-# Format (optional)
-black src/ tests/ --line-length 100
-isort src/ tests/ --profile black
+# Type check
+mypy src/ --ignore-missing-imports
 ```
 
 ---
@@ -171,7 +178,7 @@ ZEROG_LEARNING_RATE=0.001 ZEROG_BATCH_SIZE=128 \
 |-------|---------|------------|
 | `NetworkConfig` | Neural network architecture | `voxel_resolution`, `hidden_dim`, `num_res_blocks`, `action_dim` |
 | `MCTSConfig` | Tree search hyperparams | `num_simulations`, `c_puct`, `max_children`, `temperature` |
-| `TrainingConfig` | Training loop settings | `num_episodes`, `batch_size`, `learning_rate`, `gradient_clip_norm` |
+| `TrainingConfig` | Training loop settings | `num_episodes`, `batch_size`, `learning_rate`, `eval_episodes`, `max_checkpoints` |
 | `EnvironmentConfig` | Simulation settings | `simulator`, `max_episode_steps`, `max_thrust`, `max_torque` |
 | `RewardConfig` | Reward shaping weights | `position_weight`, `orientation_weight`, `success_bonus` |
 | `SystemConfig` | Top-level aggregator | All above + `checkpoint_dir`, `seed`, `use_gpu` |
@@ -193,6 +200,21 @@ src/
 ├── main.py                          # CLI entry point (train / evaluate)
 ├── config.py                        # Pydantic v2 config models + YAML loader
 ├── logging_config.py                # Structlog setup (console / JSON)
+│
+├── agents/
+│   ├── base.py                      # AgentProtocol (structural typing)
+│   └── zero_g_agent.py              # ZeroGAgent: owns update(), composes network+MCTS
+│
+├── skills/
+│   ├── base.py                      # Skill ABC
+│   ├── primitives.py                # 5 skills: translate, align, brake, station-keep, approach
+│   └── registry.py                  # register_skill() / get_skill() / list_skills()
+│
+├── tools/
+│   ├── base.py                      # Tool ABC
+│   ├── sensors.py                   # distance, orientation error, velocity, docking progress
+│   ├── planning.py                  # trajectory planner, fuel estimator
+│   └── registry.py                  # register_tool() / get_tool() / list_tools()
 │
 ├── networks/
 │   └── policy_value_net.py          # 3D CNN + MLP dual-headed network
@@ -224,7 +246,8 @@ src/
 │   └── instrumentation.py           # Timing, memory, GPU, tensor stats decorators
 │
 ├── visualization/
-│   └── web_ui.py                    # Gradio dashboard with Plotly 3D trajectories
+│   ├── web_ui.py                    # Gradio dashboard with Plotly 3D trajectories
+│   └── metrics_store.py             # JSON metrics persistence for web UI
 │
 └── utils/
     └── common.py                    # Seeding, quaternions, Timer, path validation
@@ -305,6 +328,39 @@ register_env("my_simulator", MyCustomEnv)
 
 Then set `simulator: my_simulator` in your YAML config.
 
+### Register a New Skill
+
+```python
+from src.skills.base import Skill
+from src.skills.registry import register_skill
+
+@register_skill
+class MyCustomSkill(Skill):
+    @property
+    def name(self) -> str:
+        return "my_skill"
+
+    def compute_action(self, observation, **kwargs):
+        # Return 6-DOF action in [-1, 1]
+        return np.zeros(6)
+```
+
+### Register a New Tool
+
+```python
+from src.tools.base import Tool
+from src.tools.registry import register_tool
+
+@register_tool
+class MyCustomTool(Tool):
+    @property
+    def name(self) -> str:
+        return "my_tool"
+
+    def __call__(self, observation, **kwargs):
+        return {"metric": compute_something(observation)}
+```
+
 ### Checkpoint Backward Compatibility
 
 When evolving the config schema, add migrations in `CheckpointManager._migrate()`:
@@ -321,10 +377,15 @@ def _migrate(self, ckpt, from_version):
 
 ## Known Limitations
 
-- **Web UI** uses placeholder data — connect to real training metrics for production
 - **Mock environment** has an empty workspace (no obstacles) — real simulators add complexity
 - **Single-GPU only** — distributed training requires additional orchestration
 - **MCTS** can be slow on CPU (>1s per action at 800 simulations) — use GPU or reduce sims for dev
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a detailed history of changes.
 
 ---
 

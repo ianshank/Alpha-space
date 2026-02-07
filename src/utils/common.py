@@ -102,9 +102,7 @@ def normalize_quaternion(q: np.ndarray) -> np.ndarray:
             raise ValueError(f"Expected quaternion of shape (4,), got {q.shape}")
         norm = np.linalg.norm(q)
         if norm < _QUATERNION_NORM_EPS:
-            raise ValueError(
-                f"Quaternion norm {norm} is below threshold {_QUATERNION_NORM_EPS}"
-            )
+            raise ValueError(f"Quaternion norm {norm} is below threshold {_QUATERNION_NORM_EPS}")
         return q / norm
 
     if q.ndim == 2:
@@ -113,8 +111,7 @@ def normalize_quaternion(q: np.ndarray) -> np.ndarray:
         norms = np.linalg.norm(q, axis=1, keepdims=True)
         if np.any(norms < _QUATERNION_NORM_EPS):
             raise ValueError(
-                "One or more quaternion norms are below threshold "
-                f"{_QUATERNION_NORM_EPS}"
+                f"One or more quaternion norms are below threshold {_QUATERNION_NORM_EPS}"
             )
         return q / norms
 
@@ -230,9 +227,7 @@ def clamp_actions(
         ValueError: If ``min_val > max_val``.
     """
     if min_val > max_val:
-        raise ValueError(
-            f"min_val ({min_val}) must be <= max_val ({max_val})"
-        )
+        raise ValueError(f"min_val ({min_val}) must be <= max_val ({max_val})")
     return np.clip(actions, min_val, max_val)
 
 
@@ -327,9 +322,7 @@ def validate_path(
             ) from None
 
         if common != resolved_base:
-            raise ValueError(
-                f"Path {resolved} is not relative to base directory {resolved_base}"
-            )
+            raise ValueError(f"Path {resolved} is not relative to base directory {resolved_base}")
 
     if not resolved.exists():
         raise FileNotFoundError(f"Path does not exist: {resolved}")

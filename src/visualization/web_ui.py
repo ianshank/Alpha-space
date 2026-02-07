@@ -122,6 +122,7 @@ def create_metrics_plot(
 
 def launch_ui(
     checkpoint_path: Path | None = None,
+    log_dir: Path | None = None,
     port: int = 7860,
     share: bool = False,
 ) -> None:
@@ -129,6 +130,8 @@ def launch_ui(
 
     Args:
         checkpoint_path: Optional checkpoint to load for replay.
+        log_dir: Optional directory containing metrics.json. If provided,
+            metrics will be read from the store; otherwise dummy data is used.
         port: HTTP port.
         share: If ``True``, create a public Gradio link.
     """
@@ -138,6 +141,14 @@ def launch_ui(
         logger.error("gradio not installed — run: pip install gradio")
         return
 
+    # Initialize metrics store if log_dir is provided
+    metrics_store = None
+    if log_dir is not None:
+        from src.visualization.metrics_store import MetricsStore
+
+        metrics_store = MetricsStore(log_dir)
+        logger.info("metrics_store_enabled", log_dir=str(log_dir))
+
     with gr.Blocks(title="ZeroG-RL Dashboard") as demo:
         gr.Markdown("# ZeroG-RL Training Dashboard")
 
@@ -146,7 +157,14 @@ def launch_ui(
             refresh_btn = gr.Button("Refresh")
 
             def _refresh_metrics() -> Any:
-                # Placeholder — in production would read from metrics DB
+                # Read from metrics store if available, otherwise use dummy data
+                if metrics_store is not None:
+                    metrics = metrics_store.read_all()
+                    if metrics:
+                        return create_metrics_plot(metrics)
+                    logger.debug("no_metrics_available_using_dummy")
+
+                # Fallback to dummy data
                 dummy = {"reward": list(np.random.randn(50).cumsum())}
                 return create_metrics_plot(dummy)
 

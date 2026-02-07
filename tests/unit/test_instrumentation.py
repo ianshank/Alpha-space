@@ -86,3 +86,30 @@ class TestLogTensorStats:
         """Integer tensor converted to float for stats."""
         t = torch.arange(10)
         log_tensor_stats("int_tensor", t)
+
+
+class TestStructlogCapture:
+    """Tests for verifying structured log output."""
+
+    def test_log_tensor_stats_emits_event(self) -> None:
+        """log_tensor_stats should emit a structured log event via mock."""
+        from unittest.mock import patch
+
+        t = torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])
+
+        with patch("src.debugging.instrumentation.logger") as mock_logger:
+            log_tensor_stats("test_tensor", t)
+
+            # Verify debug was called
+            mock_logger.debug.assert_called_once()
+
+            # Extract the call kwargs
+            call_args = mock_logger.debug.call_args
+            assert call_args[0][0] == "tensor_stats"
+            kwargs = call_args[1]
+            assert kwargs["name"] == "test_tensor"
+            assert "shape" in kwargs
+            assert "mean" in kwargs
+            assert kwargs["mean"] == 3.0
+            assert kwargs["min"] == 1.0
+            assert kwargs["max"] == 5.0

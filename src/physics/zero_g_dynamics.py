@@ -19,6 +19,15 @@ from src.utils.common import normalize_quaternion, quaternion_multiply
 
 logger = structlog.get_logger(__name__)
 
+# ---------------------------------------------------------------------------
+# Named constants for physics thresholds
+# ---------------------------------------------------------------------------
+
+_LINEAR_MOMENTUM_ABS_FLOOR: float = 1e-10
+_ANGULAR_MOMENTUM_ABS_FLOOR: float = 1e-8
+_ANGULAR_IMPULSE_NORM_EPS: float = 1e-10
+_QUATERNION_INTEGRATION_FACTOR: float = 0.5
+
 
 @dataclass
 class RigidBodyState:
@@ -43,9 +52,7 @@ class RigidBodyState:
     orientation: np.ndarray = field(
         default_factory=lambda: np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
     )
-    angular_velocity: np.ndarray = field(
-        default_factory=lambda: np.zeros(3, dtype=np.float64)
-    )
+    angular_velocity: np.ndarray = field(default_factory=lambda: np.zeros(3, dtype=np.float64))
     mass: float = 100.0
     inertia: np.ndarray = field(
         default_factory=lambda: np.array([10.0, 10.0, 10.0], dtype=np.float64)
@@ -138,7 +145,7 @@ class ZeroGDynamics:
         # --- Orientation update via quaternion integration ---
         # dq/dt = 0.5 * q ⊗ [0, ω]
         omega_quat = np.array([0.0, *new_angular_velocity], dtype=np.float64)
-        q_dot = 0.5 * quaternion_multiply(state.orientation, omega_quat)
+        q_dot = _QUATERNION_INTEGRATION_FACTOR * quaternion_multiply(state.orientation, omega_quat)
         new_orientation = state.orientation + q_dot * dt
         new_orientation = normalize_quaternion(new_orientation)
 
@@ -178,7 +185,7 @@ class ZeroGDynamics:
         error = np.linalg.norm(delta_p - applied_impulse)
         impulse_mag = np.linalg.norm(applied_impulse)
 
-        threshold = max(self._momentum_tolerance * impulse_mag, 1e-10)
+        threshold = max(self._momentum_tolerance * impulse_mag, _LINEAR_MOMENTUM_ABS_FLOOR)
         if error > threshold:
             logger.error(
                 "linear_momentum_violation",
@@ -203,9 +210,9 @@ class ZeroGDynamics:
         delta_momentum = new_momentum - prev_momentum
         expected = applied_impulse - gyroscopic_impulse
         error = np.linalg.norm(delta_momentum - expected)
-        impulse_mag = np.linalg.norm(expected) + 1e-10
+        impulse_mag = np.linalg.norm(expected) + _ANGULAR_IMPULSE_NORM_EPS
 
-        threshold = max(self._momentum_tolerance * impulse_mag, 1e-8)
+        threshold = max(self._momentum_tolerance * impulse_mag, _ANGULAR_MOMENTUM_ABS_FLOOR)
         if error > threshold:
             logger.error(
                 "angular_momentum_violation",

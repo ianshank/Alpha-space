@@ -40,45 +40,31 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # ---- train ----
     train_parser = sub.add_parser("train", help="Run self-play training.")
-    train_parser.add_argument(
-        "--config", type=str, default=None, help="Path to YAML config file."
-    )
+    train_parser.add_argument("--config", type=str, default=None, help="Path to YAML config file.")
     train_parser.add_argument(
         "--resume", type=str, default=None, help="Path to checkpoint to resume from."
     )
     train_parser.add_argument(
         "--episodes", type=int, default=None, help="Override number of episodes."
     )
-    train_parser.add_argument(
-        "--gpu", type=int, default=None, help="GPU index (or omit for auto)."
-    )
+    train_parser.add_argument("--gpu", type=int, default=None, help="GPU index (or omit for auto).")
     train_parser.add_argument(
         "--no-logging", action="store_true", help="Disable W&B / external logging."
     )
-    train_parser.add_argument(
-        "--debug", action="store_true", help="Enable debug mode."
-    )
-    train_parser.add_argument(
-        "--profile", action="store_true", help="Enable PyTorch profiler."
-    )
+    train_parser.add_argument("--debug", action="store_true", help="Enable debug mode.")
+    train_parser.add_argument("--profile", action="store_true", help="Enable PyTorch profiler.")
     train_parser.add_argument(
         "--pdb-on-error", action="store_true", help="Drop into pdb on exception."
     )
 
     # ---- evaluate ----
     eval_parser = sub.add_parser("evaluate", help="Evaluate a trained checkpoint.")
-    eval_parser.add_argument(
-        "--config", type=str, default=None, help="Path to YAML config file."
-    )
-    eval_parser.add_argument(
-        "--checkpoint", type=str, required=True, help="Path to checkpoint."
-    )
+    eval_parser.add_argument("--config", type=str, default=None, help="Path to YAML config file.")
+    eval_parser.add_argument("--checkpoint", type=str, required=True, help="Path to checkpoint.")
     eval_parser.add_argument(
         "--episodes", type=int, default=100, help="Number of evaluation episodes."
     )
-    eval_parser.add_argument(
-        "--use-mcts", action="store_true", help="Use MCTS during evaluation."
-    )
+    eval_parser.add_argument("--use-mcts", action="store_true", help="Use MCTS during evaluation.")
 
     return parser
 
@@ -118,7 +104,10 @@ def _cmd_train(args: argparse.Namespace) -> None:
         trainer = Trainer(config=config, resume_from=resume_path)
         summary = trainer.train()
         logger.info("training_summary", **summary)
-    except Exception:
+    except KeyboardInterrupt:
+        logger.info("training_interrupted_by_user")
+        raise
+    except (FileNotFoundError, ValueError, RuntimeError):
         logger.exception("training_failed")
         if args.pdb_on_error:
             import pdb

@@ -23,30 +23,20 @@ from pydantic import BaseModel, Field, field_validator
 class NetworkConfig(BaseModel):  # type: ignore[misc]
     """Policy / Value network architecture hyperparameters."""
 
-    voxel_resolution: int = Field(
-        default=64, ge=16, le=128, description="Voxel grid size (NxNxN)"
-    )
+    voxel_resolution: int = Field(default=64, ge=16, le=128, description="Voxel grid size (NxNxN)")
     voxel_channels: int = Field(
         default=4, ge=1, description="Channels per voxel (occupancy, velocity, etc.)"
     )
     proprioception_dim: int = Field(
         default=13, ge=1, description="Proprioception vector size (pose 7 + velocity 6)"
     )
-    hidden_dim: int = Field(
-        default=256, ge=64, description="Shared trunk hidden dimension"
-    )
+    hidden_dim: int = Field(default=256, ge=64, description="Shared trunk hidden dimension")
     num_res_blocks: int = Field(
         default=6, ge=1, le=50, description="Number of ResNet blocks in trunk"
     )
-    action_dim: int = Field(
-        default=6, ge=1, description="Action dimensionality (6-DOF)"
-    )
-    min_log_std: float = Field(
-        default=-5.0, description="Minimum log-std for policy Gaussian"
-    )
-    max_log_std: float = Field(
-        default=2.0, description="Maximum log-std for policy Gaussian"
-    )
+    action_dim: int = Field(default=6, ge=1, description="Action dimensionality (6-DOF)")
+    min_log_std: float = Field(default=-5.0, description="Minimum log-std for policy Gaussian")
+    max_log_std: float = Field(default=2.0, description="Maximum log-std for policy Gaussian")
 
     @field_validator("voxel_resolution")
     @classmethod
@@ -62,12 +52,8 @@ class MCTSConfig(BaseModel):  # type: ignore[misc]
     num_simulations: int = Field(
         default=800, ge=1, description="MCTS rollouts per action selection"
     )
-    c_puct: float = Field(
-        default=1.0, gt=0.0, description="UCT exploration constant"
-    )
-    max_children: int = Field(
-        default=32, ge=1, description="Progressive widening limit per node"
-    )
+    c_puct: float = Field(default=1.0, gt=0.0, description="UCT exploration constant")
+    max_children: int = Field(default=32, ge=1, description="Progressive widening limit per node")
     temperature: float = Field(
         default=1.0, ge=0.0, description="Action selection temperature (0 = greedy)"
     )
@@ -77,46 +63,42 @@ class MCTSConfig(BaseModel):  # type: ignore[misc]
     dirichlet_epsilon: float = Field(
         default=0.25, ge=0.0, le=1.0, description="Weight of Dirichlet noise at root"
     )
-    discount: float = Field(
-        default=0.99, ge=0.0, le=1.0, description="Reward discount factor"
-    )
+    discount: float = Field(default=0.99, ge=0.0, le=1.0, description="Reward discount factor")
 
 
 class TrainingConfig(BaseModel):  # type: ignore[misc]
     """Training loop hyperparameters."""
 
-    num_episodes: int = Field(
-        default=1000, ge=1, description="Total self-play episodes"
-    )
-    batch_size: int = Field(
-        default=256, ge=1, description="Mini-batch size for policy updates"
-    )
-    learning_rate: float = Field(
-        default=1e-4, gt=0.0, description="Adam optimizer learning rate"
-    )
-    weight_decay: float = Field(
-        default=1e-4, ge=0.0, description="L2 regularisation"
-    )
-    gradient_clip_norm: float = Field(
-        default=1.0, gt=0.0, description="Max gradient L2 norm"
-    )
+    num_episodes: int = Field(default=1000, ge=1, description="Total self-play episodes")
+    batch_size: int = Field(default=256, ge=1, description="Mini-batch size for policy updates")
+    learning_rate: float = Field(default=1e-4, gt=0.0, description="Adam optimizer learning rate")
+    weight_decay: float = Field(default=1e-4, ge=0.0, description="L2 regularisation")
+    gradient_clip_norm: float = Field(default=1.0, gt=0.0, description="Max gradient L2 norm")
     checkpoint_interval: int = Field(
         default=100, ge=1, description="Save checkpoint every N episodes"
     )
-    eval_interval: int = Field(
-        default=50, ge=1, description="Evaluate policy every N episodes"
-    )
+    eval_interval: int = Field(default=50, ge=1, description="Evaluate policy every N episodes")
     replay_buffer_size: int = Field(
         default=10_000, ge=1, description="Max transitions in replay buffer"
     )
     value_loss_weight: float = Field(
         default=1.0, gt=0.0, description="Weight for value loss in total loss"
     )
-    entropy_weight: float = Field(
-        default=0.01, ge=0.0, description="Entropy bonus weight"
-    )
+    entropy_weight: float = Field(default=0.01, ge=0.0, description="Entropy bonus weight")
     epochs_per_update: int = Field(
         default=4, ge=1, description="Gradient epochs per batch of experience"
+    )
+    eval_episodes: int = Field(
+        default=5, ge=1, description="Number of evaluation episodes per eval step"
+    )
+    eval_seed_offset: int = Field(
+        default=100_000, ge=0, description="Seed offset for evaluation episodes"
+    )
+    metrics_window: int = Field(
+        default=100, ge=1, description="Rolling window size for metrics averaging"
+    )
+    max_checkpoints: int = Field(
+        default=10, ge=0, description="Maximum checkpoints to keep (0 = unlimited)"
     )
 
 
@@ -131,30 +113,20 @@ class EnvironmentConfig(BaseModel):  # type: ignore[misc]
     parallel_envs: int = Field(
         default=1, ge=1, description="Number of parallel simulation instances"
     )
-    max_episode_steps: int = Field(
-        default=500, ge=1, description="Max timesteps per episode"
-    )
+    max_episode_steps: int = Field(default=500, ge=1, description="Max timesteps per episode")
     workspace_size: float = Field(
         default=10.0, gt=0.0, description="Workspace extent in metres (cube half-size)"
     )
-    time_step: float = Field(
-        default=0.05, gt=0.0, description="Physics timestep in seconds"
-    )
-    max_thrust: float = Field(
-        default=10.0, gt=0.0, description="Maximum thrust force (N)"
-    )
-    max_torque: float = Field(
-        default=2.0, gt=0.0, description="Maximum torque (N·m)"
-    )
+    time_step: float = Field(default=0.05, gt=0.0, description="Physics timestep in seconds")
+    max_thrust: float = Field(default=10.0, gt=0.0, description="Maximum thrust force (N)")
+    max_torque: float = Field(default=2.0, gt=0.0, description="Maximum torque (N·m)")
     position_tolerance: float = Field(
         default=0.1, gt=0.0, description="Docking success position threshold (m)"
     )
     orientation_tolerance_deg: float = Field(
         default=5.0, gt=0.0, description="Docking success orientation threshold (°)"
     )
-    spacecraft_mass: float = Field(
-        default=100.0, gt=0.0, description="Spacecraft mass (kg)"
-    )
+    spacecraft_mass: float = Field(default=100.0, gt=0.0, description="Spacecraft mass (kg)")
     spacecraft_inertia: tuple[float, float, float] = Field(
         default=(10.0, 10.0, 10.0),
         description="Principal moments of inertia (Ixx, Iyy, Izz) in kg·m²",
@@ -170,21 +142,11 @@ class RewardConfig(BaseModel):  # type: ignore[misc]
     orientation_weight: float = Field(
         default=0.5, ge=0.0, description="Weight for orientation error penalty"
     )
-    velocity_weight: float = Field(
-        default=0.1, ge=0.0, description="Weight for velocity penalty"
-    )
-    fuel_weight: float = Field(
-        default=0.01, ge=0.0, description="Weight for fuel usage penalty"
-    )
-    success_bonus: float = Field(
-        default=100.0, ge=0.0, description="Bonus for successful docking"
-    )
-    collision_penalty: float = Field(
-        default=-50.0, le=0.0, description="Penalty for collision"
-    )
-    time_penalty: float = Field(
-        default=-0.1, le=0.0, description="Per-step time penalty"
-    )
+    velocity_weight: float = Field(default=0.1, ge=0.0, description="Weight for velocity penalty")
+    fuel_weight: float = Field(default=0.01, ge=0.0, description="Weight for fuel usage penalty")
+    success_bonus: float = Field(default=100.0, ge=0.0, description="Bonus for successful docking")
+    collision_penalty: float = Field(default=-50.0, le=0.0, description="Penalty for collision")
+    time_penalty: float = Field(default=-0.1, le=0.0, description="Per-step time penalty")
 
 
 # ---------------------------------------------------------------------------
@@ -205,9 +167,7 @@ class SystemConfig(BaseModel):  # type: ignore[misc]
     checkpoint_dir: Path = Field(
         default=Path("checkpoints"), description="Directory for model checkpoints"
     )
-    log_dir: Path = Field(
-        default=Path("logs"), description="Directory for training logs"
-    )
+    log_dir: Path = Field(default=Path("logs"), description="Directory for training logs")
 
     # External services
     wandb_project: str = Field(default="zerog-rl", description="W&B project name")
@@ -219,9 +179,7 @@ class SystemConfig(BaseModel):  # type: ignore[misc]
     # Runtime flags
     use_gpu: bool = Field(default=True, description="Prefer GPU if available")
     debug: bool = Field(default=False, description="Enable debug logging and checks")
-    no_logging: bool = Field(
-        default=False, description="Disable external metrics logging"
-    )
+    no_logging: bool = Field(default=False, description="Disable external metrics logging")
 
 
 # ---------------------------------------------------------------------------
@@ -244,6 +202,10 @@ _ENV_MAP: dict[str, str] = {
     f"{_ENV_PREFIX}SEED": "seed",
     f"{_ENV_PREFIX}WANDB_PROJECT": "wandb_project",
     f"{_ENV_PREFIX}WANDB_ENTITY": "wandb_entity",
+    f"{_ENV_PREFIX}EVAL_EPISODES": "training.eval_episodes",
+    f"{_ENV_PREFIX}EVAL_SEED_OFFSET": "training.eval_seed_offset",
+    f"{_ENV_PREFIX}METRICS_WINDOW": "training.metrics_window",
+    f"{_ENV_PREFIX}MAX_CHECKPOINTS": "training.max_checkpoints",
 }
 
 

@@ -50,9 +50,7 @@ class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ig
         self._step_count = 0
 
         # Action space: normalised [-1, 1] for 6-DOF
-        self.action_space = gym.spaces.Box(
-            low=-1.0, high=1.0, shape=(6,), dtype=np.float32
-        )
+        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
 
         # Observation space (dict)
         self.observation_space = gym.spaces.Dict(
@@ -63,12 +61,8 @@ class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ig
                     shape=(voxel_channels, voxel_resolution, voxel_resolution, voxel_resolution),
                     dtype=np.float32,
                 ),
-                "proprio": gym.spaces.Box(
-                    low=-np.inf, high=np.inf, shape=(13,), dtype=np.float32
-                ),
-                "goal": gym.spaces.Box(
-                    low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32
-                ),
+                "proprio": gym.spaces.Box(low=-np.inf, high=np.inf, shape=(13,), dtype=np.float32),
+                "goal": gym.spaces.Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32),
             }
         )
 

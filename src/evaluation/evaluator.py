@@ -21,6 +21,8 @@ from src.utils.common import get_device, seed_everything
 
 logger = structlog.get_logger(__name__)
 
+_EVAL_SEED_OFFSET: int = 200_000
+
 
 class Evaluator:
     """Evaluate a trained policy checkpoint.
@@ -102,22 +104,16 @@ class Evaluator:
     ) -> tuple[float, int, bool]:
         """Execute a single evaluation episode."""
         env = make_env(self._config)
-        obs, _ = env.reset(seed=self._config.seed + 200_000 + seed_offset)
+        obs, _ = env.reset(seed=self._config.seed + _EVAL_SEED_OFFSET + seed_offset)
 
         total_reward = 0.0
         terminated = False
 
         for step in range(self._config.environment.max_episode_steps):
             with torch.no_grad():
-                voxels_t = (
-                    torch.from_numpy(obs["voxels"]).unsqueeze(0).float().to(self._device)
-                )
-                proprio_t = (
-                    torch.from_numpy(obs["proprio"]).unsqueeze(0).float().to(self._device)
-                )
-                actions, _, _ = self._network.act(
-                    voxels_t, proprio_t, deterministic=deterministic
-                )
+                voxels_t = torch.from_numpy(obs["voxels"]).unsqueeze(0).float().to(self._device)
+                proprio_t = torch.from_numpy(obs["proprio"]).unsqueeze(0).float().to(self._device)
+                actions, _, _ = self._network.act(voxels_t, proprio_t, deterministic=deterministic)
             action = actions.squeeze(0).cpu().numpy()
             action = np.clip(action, -1.0, 1.0).astype(np.float32)
 
