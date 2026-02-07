@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "zerog-rl"
+version = "1.0.0"
+description = "AlphaZero-style self-play RL system for 3D zero-gravity spatial control"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+[project.scripts]
+zerog-train = "src.main:main"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "W", "C90", "I", "N"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+allow_untyped_calls = true
+allow_untyped_decorators = true
+warn_return_any = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "gymnasium.*",
+    "mlagents.*",
+    "wandb.*",
+    "plotly.*",
+    "gradio.*",
+    "redis.*",
+    "structlog.*",
+    "open3d.*",
+    "scipy.*",
+    "hypothesis.*",
+    "pyarrow.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+asyncio_mode = "auto"

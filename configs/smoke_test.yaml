@@ -1,0 +1,64 @@
+# Smoke test configuration — minimal settings for quick sanity checks.
+# Runs 1 episode on CPU with smallest network and MCTS settings.
+
+network:
+  voxel_resolution: 16
+  voxel_channels: 4
+  proprioception_dim: 13
+  hidden_dim: 64
+  num_res_blocks: 1
+  action_dim: 6
+  min_log_std: -5.0
+  max_log_std: 2.0
+
+mcts:
+  num_simulations: 4
+  c_puct: 1.0
+  max_children: 4
+  temperature: 1.0
+  dirichlet_alpha: 0.25
+  dirichlet_epsilon: 0.25
+  discount: 0.99
+
+training:
+  num_episodes: 1
+  batch_size: 4
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  gradient_clip_norm: 1.0
+  checkpoint_interval: 1
+  eval_interval: 1
+  replay_buffer_size: 100
+  value_loss_weight: 1.0
+  entropy_weight: 0.01
+  epochs_per_update: 1
+
+environment:
+  simulator: mock
+  parallel_envs: 1
+  max_episode_steps: 10
+  workspace_size: 10.0
+  time_step: 0.05
+  max_thrust: 10.0
+  max_torque: 2.0
+  position_tolerance: 0.1
+  orientation_tolerance_deg: 5.0
+  spacecraft_mass: 100.0
+  spacecraft_inertia: [10.0, 10.0, 10.0]
+
+reward:
+  position_weight: 1.0
+  orientation_weight: 0.5
+  velocity_weight: 0.1
+  fuel_weight: 0.01
+  success_bonus: 100.0
+  collision_penalty: -50.0
+  time_penalty: -0.1
+
+checkpoint_dir: /tmp/zerog_smoke/checkpoints
+log_dir: /tmp/zerog_smoke/logs
+wandb_project: zerog-rl-test
+seed: 42
+use_gpu: false
+debug: true
+no_logging: true

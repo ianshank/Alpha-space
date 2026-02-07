@@ -1,0 +1,44 @@
+# Quick test configuration — 10 episodes for integration testing.
+
+network:
+  voxel_resolution: 16
+  voxel_channels: 4
+  proprioception_dim: 13
+  hidden_dim: 64
+  num_res_blocks: 1
+  action_dim: 6
+
+mcts:
+  num_simulations: 8
+  c_puct: 1.0
+  max_children: 8
+  temperature: 1.0
+  discount: 0.99
+
+training:
+  num_episodes: 10
+  batch_size: 8
+  learning_rate: 0.001
+  gradient_clip_norm: 1.0
+  checkpoint_interval: 5
+  eval_interval: 5
+  replay_buffer_size: 200
+  epochs_per_update: 1
+
+environment:
+  simulator: mock
+  parallel_envs: 1
+  max_episode_steps: 20
+  workspace_size: 10.0
+  time_step: 0.05
+  max_thrust: 10.0
+  max_torque: 2.0
+  spacecraft_mass: 100.0
+  spacecraft_inertia: [10.0, 10.0, 10.0]
+
+checkpoint_dir: /tmp/zerog_quick/checkpoints
+log_dir: /tmp/zerog_quick/logs
+seed: 42
+use_gpu: false
+debug: false
+no_logging: true
