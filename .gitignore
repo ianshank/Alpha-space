@@ -42,6 +42,9 @@ coverage.xml
 # Pytest
 .pytest_cache/
 
+# Hypothesis
+.hypothesis/
+
 # Jupyter
 .ipynb_checkpoints/
 
