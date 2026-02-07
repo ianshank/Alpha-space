@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import structlog
 
-from src.config import EnvironmentConfig, RewardConfig, SystemConfig
+from src.config import SystemConfig
 from src.environments.base import ZeroGEnv
 from src.environments.mock_env import MockZeroGEnv
 

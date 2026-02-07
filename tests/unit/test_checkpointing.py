@@ -23,7 +23,6 @@ from src.checkpointing.checkpoint_manager import (
 from src.config import NetworkConfig, SystemConfig
 from src.networks.policy_value_net import SpatialPolicyValueNetwork
 
-
 # ------------------------------------------------------------------ #
 # Helpers: small network and config for fast tests
 # ------------------------------------------------------------------ #
@@ -135,7 +134,7 @@ class TestCheckpointSave:
 
     def test_save_creates_checkpoint_dir(self, tmp_path: Path):
         subdir = tmp_path / "deep" / "nested" / "ckpts"
-        mgr = CheckpointManager(checkpoint_dir=subdir)
+        CheckpointManager(checkpoint_dir=subdir)
         assert subdir.is_dir()
 
     def test_no_temp_file_left_behind(self, tmp_path: Path):
@@ -340,10 +339,9 @@ class TestMigration:
 
         # The in-memory migration should have happened without errors
         # Re-load raw checkpoint to verify version was set during migration
-        ckpt = torch.load(path, map_location="cpu", weights_only=False)
-        # Note: the file on disk is not re-written, but the in-memory
-        # migration sets version to CURRENT_VERSION. We just verify
-        # load succeeded without errors.
+        # Verify the raw file on disk is still readable
+        raw = torch.load(path, map_location="cpu", weights_only=False)
+        assert "version" in raw
 
     def test_migration_adds_missing_config_fields(self, tmp_path: Path):
         mgr = CheckpointManager(checkpoint_dir=tmp_path)
@@ -437,7 +435,7 @@ class TestLatest:
 
         mgr.save(net, opt, episode=1, config=config)
         time.sleep(0.05)  # ensure different mtime
-        second = mgr.save(net, opt, episode=2, config=config)
+        mgr.save(net, opt, episode=2, config=config)
         time.sleep(0.05)
         third = mgr.save(net, opt, episode=3, config=config)
 

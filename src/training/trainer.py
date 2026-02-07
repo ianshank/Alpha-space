@@ -19,10 +19,9 @@ import torch.nn as nn
 
 from src.checkpointing.checkpoint_manager import CheckpointManager
 from src.config import SystemConfig
-from src.debugging.instrumentation import log_execution_time, log_tensor_stats
-from src.environments.base import ZeroGEnv
+from src.debugging.instrumentation import log_tensor_stats
 from src.environments.factory import make_env
-from src.mcts.engine import MCTSEngine, PolicyValuePredictor
+from src.mcts.engine import MCTSEngine
 from src.networks.policy_value_net import SpatialPolicyValueNetwork
 from src.replay_buffer.buffer import Episode, ReplayBuffer, Transition
 from src.utils.common import Timer, get_device, seed_everything

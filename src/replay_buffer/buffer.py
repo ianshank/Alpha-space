@@ -8,7 +8,7 @@ storage and offline analysis.
 from __future__ import annotations
 
 import random
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 

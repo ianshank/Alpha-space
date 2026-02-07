@@ -11,7 +11,8 @@ fundamental physical laws regardless of the input state:
 from __future__ import annotations
 
 import numpy as np
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from src.physics.zero_g_dynamics import RigidBodyState, ZeroGDynamics
 from src.utils.common import normalize_quaternion
@@ -20,9 +21,15 @@ from src.utils.common import normalize_quaternion
 # Strategies
 # ---------------------------------------------------------------------------
 
-_reasonable_float = st.floats(min_value=-10.0, max_value=10.0, allow_nan=False, allow_infinity=False)
-_positive_float = st.floats(min_value=0.1, max_value=1000.0, allow_nan=False, allow_infinity=False)
-_small_float = st.floats(min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False)
+_reasonable_float = st.floats(
+    min_value=-10.0, max_value=10.0, allow_nan=False, allow_infinity=False
+)
+_positive_float = st.floats(
+    min_value=0.1, max_value=1000.0, allow_nan=False, allow_infinity=False
+)
+_small_float = st.floats(
+    min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False
+)
 
 _vec3 = st.tuples(_reasonable_float, _reasonable_float, _reasonable_float).map(
     lambda t: np.array(t, dtype=np.float64)

@@ -91,7 +91,8 @@ class Evaluator:
             "num_episodes": num_episodes,
             "episode_rewards": rewards,
         }
-        logger.info("evaluation_complete", **{k: v for k, v in result.items() if k != "episode_rewards"})
+        summary = {k: v for k, v in result.items() if k != "episode_rewards"}
+        logger.info("evaluation_complete", **summary)
         return result
 
     def _run_one(

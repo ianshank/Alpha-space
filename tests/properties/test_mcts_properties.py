@@ -10,10 +10,11 @@ Verifies structural properties of the MCTS search tree:
 from __future__ import annotations
 
 import numpy as np
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from src.config import MCTSConfig
-from src.mcts.engine import MCTSEngine, MCTSNode
+from src.mcts.engine import MCTSEngine
 
 
 class _DummyPredictor:

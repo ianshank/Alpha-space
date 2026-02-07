@@ -168,32 +168,10 @@ class MCTSEngine:
                 node = node.children[child_idx]
                 search_path.append(node)
 
-            # EVALUATE leaf
-            if node.is_terminal:
-                leaf_value = 0.0
-            elif env_model is not None and node.action is not None:
-                # If we have an env model, step to get real observation
-                env_model.set_state(root.env_state)
-                # Replay actions along the path
-                obs = observation
-                for path_node in search_path[1:]:
-                    if path_node.action is not None:
-                        obs, reward, done = env_model.step(path_node.action)
-                        path_node.reward = reward
-                        if done:
-                            path_node.is_terminal = True
-                node.env_state = env_model.clone_state()
-                actions, leaf_value = self._predictor.predict(obs)
-                # Progressive widening: maybe expand this leaf
-                if len(node.children) < self._config.max_children:
-                    self._expand_node(node, actions)
-            else:
-                # Value-only: re-predict at this state
-                actions, leaf_value = self._predictor.predict(observation)
-                if len(node.children) < self._config.max_children and node.visit_count > 0:
-                    self._expand_node(node, actions)
-
-            # BACKUP
+            # EVALUATE leaf and BACKUP
+            leaf_value = self._evaluate_leaf(
+                node, search_path, observation, root, env_model
+            )
             self._backup(search_path, leaf_value)
 
         # Select action from root children based on visit counts
@@ -209,6 +187,56 @@ class MCTSEngine:
         )
 
         return action, info
+
+    def _evaluate_leaf(
+        self,
+        node: MCTSNode,
+        search_path: list[MCTSNode],
+        observation: dict[str, np.ndarray],
+        root: MCTSNode,
+        env_model: EnvironmentModel | None,
+    ) -> float:
+        """Evaluate a leaf node and optionally expand it.
+
+        Returns:
+            The estimated value of the leaf state.
+        """
+        if node.is_terminal:
+            return 0.0
+
+        if env_model is not None and node.action is not None:
+            return self._evaluate_with_env(
+                node, search_path, observation, root, env_model
+            )
+
+        # Value-only: re-predict at this state
+        actions, leaf_value = self._predictor.predict(observation)
+        if len(node.children) < self._config.max_children and node.visit_count > 0:
+            self._expand_node(node, actions)
+        return leaf_value
+
+    def _evaluate_with_env(
+        self,
+        node: MCTSNode,
+        search_path: list[MCTSNode],
+        observation: dict[str, np.ndarray],
+        root: MCTSNode,
+        env_model: EnvironmentModel,
+    ) -> float:
+        """Evaluate a leaf by stepping the environment model along the search path."""
+        env_model.set_state(root.env_state)
+        obs = observation
+        for path_node in search_path[1:]:
+            if path_node.action is not None:
+                obs, reward, done = env_model.step(path_node.action)
+                path_node.reward = reward
+                if done:
+                    path_node.is_terminal = True
+        node.env_state = env_model.clone_state()
+        actions, leaf_value = self._predictor.predict(obs)
+        if len(node.children) < self._config.max_children:
+            self._expand_node(node, actions)
+        return leaf_value
 
     def _expand_node(self, node: MCTSNode, candidate_actions: np.ndarray) -> None:
         """Add children to *node* from candidate action samples."""
@@ -332,4 +360,4 @@ class MCTSEngine:
             [root.children[i].visit_count for i in indices], dtype=np.float64
         )
         probs = visits / visits.sum() if visits.sum() > 0 else visits
-        return actions, probs  # type: ignore[return-value]
+        return actions, probs

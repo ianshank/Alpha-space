@@ -7,7 +7,6 @@ environment variable overrides, _auto_cast, and _set_nested.
 
 from __future__ import annotations
 
-import os
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -26,7 +25,6 @@ from src.config import (
     _set_nested,
     load_config,
 )
-
 
 # =========================================================================
 # _auto_cast

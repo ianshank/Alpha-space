@@ -14,7 +14,6 @@ import pytest
 
 from src.replay_buffer.buffer import Episode, ReplayBuffer, Transition
 
-
 # ------------------------------------------------------------------ #
 # Helpers
 # ------------------------------------------------------------------ #
@@ -140,7 +139,7 @@ class TestFIFOEviction:
     def test_eviction_order_preserves_newest(self):
         cap = 4
         buf = ReplayBuffer(capacity=cap)
-        all_t = _fill_buffer(buf, cap + 6)
+        _fill_buffer(buf, cap + 6)
         # After adding cap+6 items to a buffer of size cap, the last cap items survive
         expected_rewards = [float(i) for i in range(6, cap + 6)]
         actual_rewards = [t.reward for t in buf._buffer]

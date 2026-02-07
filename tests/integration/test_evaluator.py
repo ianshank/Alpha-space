@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import torch
 
 from src.checkpointing.checkpoint_manager import CheckpointManager
 from src.config import SystemConfig
@@ -12,8 +13,6 @@ from src.evaluation.evaluator import Evaluator
 from src.logging_config import setup_logging
 from src.networks.policy_value_net import SpatialPolicyValueNetwork
 from src.utils.common import get_device
-
-import torch
 
 
 @pytest.fixture(autouse=True)

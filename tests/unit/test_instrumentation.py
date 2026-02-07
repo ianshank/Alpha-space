@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import time
-
 import torch
 
 from src.debugging.instrumentation import (

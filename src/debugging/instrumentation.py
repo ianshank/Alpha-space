@@ -9,7 +9,7 @@ from __future__ import annotations
 import functools
 import time
 import tracemalloc
-from typing import Any, Callable, ParamSpec, TypeVar
+from typing import Callable, ParamSpec, TypeVar
 
 import structlog
 import torch

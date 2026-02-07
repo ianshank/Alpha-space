@@ -28,7 +28,6 @@ from src.utils.common import (
     validate_path,
 )
 
-
 # =========================================================================
 # seed_everything
 # =========================================================================
@@ -403,12 +402,7 @@ class TestQuaternionMultiply:
 
     def test_non_commutative(self) -> None:
         """Quaternion multiplication is generally non-commutative."""
-        q1 = np.array([0.5, 0.5, 0.5, 0.5])
-        q2 = np.array([1.0, 0.0, 0.0, 0.0])
-        r1 = quaternion_multiply(q1, q2)
-        r2 = quaternion_multiply(q2, q1)
-        # They should be equal in this specific case (identity on one side),
-        # so use a non-trivial pair
+        # Use non-trivial pair (not identity) to show non-commutativity
         q3 = np.array([0.0, 1.0, 0.0, 0.0])
         q4 = np.array([0.0, 0.0, 1.0, 0.0])
         r3 = quaternion_multiply(q3, q4)

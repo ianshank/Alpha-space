@@ -12,16 +12,15 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field, field_validator
-
 
 # ---------------------------------------------------------------------------
 # Sub-configs
 # ---------------------------------------------------------------------------
 
 
-class NetworkConfig(BaseModel):
+class NetworkConfig(BaseModel):  # type: ignore[misc]
     """Policy / Value network architecture hyperparameters."""
 
     voxel_resolution: int = Field(
@@ -57,7 +56,7 @@ class NetworkConfig(BaseModel):
         return v
 
 
-class MCTSConfig(BaseModel):
+class MCTSConfig(BaseModel):  # type: ignore[misc]
     """Monte Carlo Tree Search hyperparameters."""
 
     num_simulations: int = Field(
@@ -83,7 +82,7 @@ class MCTSConfig(BaseModel):
     )
 
 
-class TrainingConfig(BaseModel):
+class TrainingConfig(BaseModel):  # type: ignore[misc]
     """Training loop hyperparameters."""
 
     num_episodes: int = Field(
@@ -121,7 +120,7 @@ class TrainingConfig(BaseModel):
     )
 
 
-class EnvironmentConfig(BaseModel):
+class EnvironmentConfig(BaseModel):  # type: ignore[misc]
     """Simulation environment settings."""
 
     simulator: str = Field(
@@ -162,7 +161,7 @@ class EnvironmentConfig(BaseModel):
     )
 
 
-class RewardConfig(BaseModel):
+class RewardConfig(BaseModel):  # type: ignore[misc]
     """Reward shaping parameters."""
 
     position_weight: float = Field(
@@ -193,7 +192,7 @@ class RewardConfig(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class SystemConfig(BaseModel):
+class SystemConfig(BaseModel):  # type: ignore[misc]
     """Root configuration container for the entire system."""
 
     network: NetworkConfig = Field(default_factory=NetworkConfig)

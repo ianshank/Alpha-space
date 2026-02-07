@@ -164,7 +164,7 @@ def launch_ui(
             gen_btn.click(fn=_gen_trajectory, outputs=traj_plot)
 
         with gr.Tab("Configuration"):
-            config_box = gr.JSON(label="Current Config")
+            gr.JSON(label="Current Config")
             gr.Markdown("*Load a config file to display here.*")
 
     logger.info("launching_web_ui", port=port, share=share)

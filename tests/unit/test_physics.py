@@ -16,7 +16,6 @@ from src.physics.zero_g_dynamics import (
     ZeroGDynamics,
 )
 
-
 # ------------------------------------------------------------------ #
 # Helpers
 # ------------------------------------------------------------------ #
@@ -34,13 +33,18 @@ def _make_state(
     inertia=None,
 ) -> RigidBodyState:
     """Convenience factory for RigidBodyState with sensible defaults."""
+    _f64 = np.float64
+
+    def _vec3(val: object, default: np.ndarray) -> np.ndarray:
+        return np.array(val, dtype=_f64) if val is not None else default
+
     return RigidBodyState(
-        position=np.array(position, dtype=np.float64) if position is not None else np.zeros(3, dtype=np.float64),
-        velocity=np.array(velocity, dtype=np.float64) if velocity is not None else np.zeros(3, dtype=np.float64),
-        orientation=np.array(orientation, dtype=np.float64) if orientation is not None else IDENTITY_QUAT.copy(),
-        angular_velocity=np.array(angular_velocity, dtype=np.float64) if angular_velocity is not None else np.zeros(3, dtype=np.float64),
+        position=_vec3(position, np.zeros(3, dtype=_f64)),
+        velocity=_vec3(velocity, np.zeros(3, dtype=_f64)),
+        orientation=_vec3(orientation, IDENTITY_QUAT.copy()),
+        angular_velocity=_vec3(angular_velocity, np.zeros(3, dtype=_f64)),
         mass=mass,
-        inertia=np.array(inertia, dtype=np.float64) if inertia is not None else np.array([10.0, 10.0, 10.0], dtype=np.float64),
+        inertia=_vec3(inertia, np.array([10.0, 10.0, 10.0], dtype=_f64)),
     )
 
 
@@ -358,12 +362,12 @@ class TestPhysicsViolationError:
     def test_manual_angular_momentum_violation(self):
         """Directly invoke the internal angular check to verify it can raise."""
         dynamics = ZeroGDynamics(momentum_tolerance=1e-10)
-        prev_L = np.array([0.0, 0.0, 0.0])
-        new_L = np.array([0.0, 0.0, 0.0])
+        prev_angular = np.array([0.0, 0.0, 0.0])
+        new_angular = np.array([0.0, 0.0, 0.0])
         impulse = np.array([10.0, 0.0, 0.0])
         gyro = np.zeros(3)
         with pytest.raises(PhysicsViolationError, match="Angular momentum conservation"):
-            dynamics._check_angular_momentum(prev_L, new_L, impulse, gyro)
+            dynamics._check_angular_momentum(prev_angular, new_angular, impulse, gyro)
 
 
 # ================================================================== #

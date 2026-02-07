@@ -5,8 +5,6 @@ from __future__ import annotations
 import subprocess
 import sys
 
-import pytest
-
 
 class TestSmoke:
     def test_smoke_train_one_episode(self) -> None:

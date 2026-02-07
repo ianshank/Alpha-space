@@ -8,14 +8,12 @@ used so no real neural network is required.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 import pytest
 
 from src.config import MCTSConfig
 from src.mcts.engine import MCTSEngine, MCTSNode
-
 
 # ---------------------------------------------------------------------------
 # Mock predictor

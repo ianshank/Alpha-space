@@ -18,7 +18,7 @@ from src.config import EnvironmentConfig, RewardConfig
 logger = structlog.get_logger(__name__)
 
 
-class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):
+class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ignore[misc]
     """Abstract Gymnasium environment for zero-gravity docking tasks.
 
     Subclasses must implement :meth:`_sim_reset` and :meth:`_sim_step`.

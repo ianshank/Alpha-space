@@ -26,6 +26,8 @@ line_length = 100
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
 select = ["E", "F", "W", "C90", "I", "N"]
 
 [tool.mypy]
@@ -49,8 +51,14 @@ module = [
     "scipy.*",
     "hypothesis.*",
     "pyarrow.*",
+    "numpy.*",
+    "torch.*",
+    "pydantic.*",
+    "pydantic_settings.*",
+    "aiofiles.*",
 ]
 ignore_missing_imports = true
+follow_untyped_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -7,11 +7,8 @@ works end-to-end without errors.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
-import torch
 
 from src.config import SystemConfig, load_config
 from src.environments.factory import make_env, make_envs

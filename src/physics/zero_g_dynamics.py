@@ -130,8 +130,8 @@ class ZeroGDynamics:
         # --- Angular dynamics (body frame) ---
         # Euler's rotation equation: I * α = τ - ω × (I * ω)
         omega = state.angular_velocity
-        I_omega = state.inertia * omega
-        gyroscopic = np.cross(omega, I_omega)
+        inertia_omega = state.inertia * omega
+        gyroscopic = np.cross(omega, inertia_omega)
         angular_acceleration = (torque - gyroscopic) / state.inertia
         new_angular_velocity = omega + angular_acceleration * dt
 
@@ -200,9 +200,9 @@ class ZeroGDynamics:
         gyroscopic_impulse: np.ndarray,
     ) -> None:
         """Verify angular momentum conservation accounting for gyroscopic torque."""
-        delta_L = new_momentum - prev_momentum
+        delta_momentum = new_momentum - prev_momentum
         expected = applied_impulse - gyroscopic_impulse
-        error = np.linalg.norm(delta_L - expected)
+        error = np.linalg.norm(delta_momentum - expected)
         impulse_mag = np.linalg.norm(expected) + 1e-10
 
         threshold = max(self._momentum_tolerance * impulse_mag, 1e-8)

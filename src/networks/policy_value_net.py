@@ -18,7 +18,6 @@ outputs a scalar state-value estimate.
 from __future__ import annotations
 
 import math
-from typing import Any
 
 import structlog
 import torch
@@ -35,7 +34,7 @@ logger = structlog.get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-class ResBlock3D(nn.Module):
+class ResBlock3D(nn.Module):  # type: ignore[misc]
     """Pre-activation 3D residual block with optional channel projection."""
 
     def __init__(self, channels: int) -> None:
@@ -53,7 +52,7 @@ class ResBlock3D(nn.Module):
         return x + self.block(x)
 
 
-class ResBlock1D(nn.Module):
+class ResBlock1D(nn.Module):  # type: ignore[misc]
     """1-D residual block for the shared trunk after flattening."""
 
     def __init__(self, dim: int) -> None:
@@ -76,7 +75,7 @@ class ResBlock1D(nn.Module):
 # ---------------------------------------------------------------------------
 
 
-class VoxelEncoder(nn.Module):
+class VoxelEncoder(nn.Module):  # type: ignore[misc]
     """3D convolutional encoder for voxelised spatial observations.
 
     Processes a ``(B, C, D, H, W)`` voxel grid through a series of strided
@@ -119,7 +118,7 @@ class VoxelEncoder(nn.Module):
         return self.projection(self.encoder(voxels))
 
 
-class ProprioceptionEncoder(nn.Module):
+class ProprioceptionEncoder(nn.Module):  # type: ignore[misc]
     """MLP encoder for spacecraft proprioception (pose + velocity)."""
 
     def __init__(self, in_features: int, out_features: int) -> None:
@@ -140,7 +139,7 @@ class ProprioceptionEncoder(nn.Module):
 # ---------------------------------------------------------------------------
 
 
-class PolicyHead(nn.Module):
+class PolicyHead(nn.Module):  # type: ignore[misc]
     """Outputs a diagonal Gaussian distribution over continuous actions.
 
     The log standard deviation is learned but clamped to
@@ -168,7 +167,7 @@ class PolicyHead(nn.Module):
         return Independent(Normal(mean, log_std.exp()), reinterpreted_batch_ndims=1)
 
 
-class ValueHead(nn.Module):
+class ValueHead(nn.Module):  # type: ignore[misc]
     """Scalar state-value estimation."""
 
     def __init__(self, in_features: int) -> None:
@@ -188,7 +187,7 @@ class ValueHead(nn.Module):
 # ---------------------------------------------------------------------------
 
 
-class SpatialPolicyValueNetwork(nn.Module):
+class SpatialPolicyValueNetwork(nn.Module):  # type: ignore[misc]
     """Dual-headed policy/value network for 3D spatial control.
 
     Args:
