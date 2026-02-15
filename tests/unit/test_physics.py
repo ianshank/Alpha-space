@@ -140,8 +140,10 @@ class TestRigidBodyStatePhysics:
 
     def test_kinetic_energy_combined(self):
         state = _make_state(
-            velocity=[1, 0, 0], angular_velocity=[0, 2, 0],
-            mass=4.0, inertia=[10, 5, 10],
+            velocity=[1, 0, 0],
+            angular_velocity=[0, 2, 0],
+            mass=4.0,
+            inertia=[10, 5, 10],
         )
         # KE_trans = 0.5 * 4 * 1 = 2
         # KE_rot = 0.5 * 5 * 4 = 10
@@ -270,9 +272,7 @@ class TestZeroGDynamicsWithForce:
         [[1, 1, 1], [10, 20, 30], [100, 100, 100]],
         ids=["uniform-small", "asymmetric", "uniform-large"],
     )
-    def test_angular_acceleration_scales_with_inertia(
-        self, dynamics: ZeroGDynamics, inertia
-    ):
+    def test_angular_acceleration_scales_with_inertia(self, dynamics: ZeroGDynamics, inertia):
         torque = np.array([10.0, 0, 0])
         state = _make_state(inertia=inertia)
         dt = 0.1
@@ -439,3 +439,67 @@ class TestParametrisedMassInertia:
         dynamics.step(state, force=np.array([1, 0, 0]), torque=ZERO3, dt=0.1)
         np.testing.assert_array_equal(state.position, original_pos)
         np.testing.assert_array_equal(state.velocity, original_vel)
+
+
+# ================================================================== #
+# Gyroscopic effects
+# ================================================================== #
+
+
+class TestGyroscopicEffects:
+    """Tests for gyroscopic coupling in angular dynamics."""
+
+    def test_asymmetric_inertia_causes_precession(self) -> None:
+        """Asymmetric inertia with angular velocity should show gyroscopic coupling."""
+        dynamics = ZeroGDynamics()
+
+        # Setup state with asymmetric inertia and angular velocity on MULTIPLE axes.
+        # A single-axis spin (e.g. [0,0,2]) produces omega x (I*omega) = 0
+        # because both vectors are parallel. We need off-axis components.
+        inertia = [10.0, 20.0, 30.0]
+        angular_velocity = [1.0, 0.0, 2.0]  # Multi-axis spin
+
+        state = _make_state(
+            inertia=inertia,
+            angular_velocity=angular_velocity,
+        )
+
+        # Step with zero torque - gyroscopic effects should still occur
+        # cross([1,0,2], [10,0,60]) = [0, -40, 0] -> non-zero coupling on y
+        dt = 0.01
+        new = dynamics.step(state, force=ZERO3, torque=ZERO3, dt=dt, validate=False)
+
+        # Euler's equations: omega_dot = I^-1 * (tau - omega x (I * omega))
+        # With zero torque, the gyroscopic term drives angular velocity changes.
+        # Specifically the y-component should develop from the cross product.
+        assert abs(new.angular_velocity[1]) > 1e-6, (
+            "Asymmetric inertia with multi-axis rotation should show gyroscopic coupling"
+        )
+
+    def test_symmetric_inertia_no_coupling(self) -> None:
+        """Symmetric inertia should show no gyroscopic coupling."""
+        dynamics = ZeroGDynamics()
+
+        # Setup state with symmetric inertia (sphere)
+        inertia = [10.0, 10.0, 10.0]
+        angular_velocity = [0.0, 0.0, 1.0]  # Spin around z-axis
+
+        state = _make_state(
+            inertia=inertia,
+            angular_velocity=angular_velocity,
+        )
+
+        # Step with zero torque
+        dt = 0.1
+        new = dynamics.step(state, force=ZERO3, torque=ZERO3, dt=dt, validate=False)
+
+        # With symmetric inertia, there should be no gyroscopic coupling
+        # Angular velocity should remain on the same axis
+        # omega x (I * omega) = 0 when I is isotropic
+
+        # Check that x and y components remain essentially zero
+        np.testing.assert_allclose(new.angular_velocity[0], 0.0, atol=1e-12)
+        np.testing.assert_allclose(new.angular_velocity[1], 0.0, atol=1e-12)
+
+        # z component should be unchanged (no torque)
+        np.testing.assert_allclose(new.angular_velocity[2], state.angular_velocity[2], atol=1e-12)

@@ -2,7 +2,7 @@
 
 Implements Newton-Euler equations in a zero-gravity environment:
   - Linear: F = m * a  (no gravity term)
-  - Angular: τ = I * α + ω × (I * ω)
+  - Angular: tau = I * alpha + omega x (I * omega)
 
 Quaternions are used for orientation and are re-normalised after every
 integration step to prevent numerical drift.
@@ -18,6 +18,15 @@ import structlog
 from src.utils.common import normalize_quaternion, quaternion_multiply
 
 logger = structlog.get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Named constants for physics thresholds
+# ---------------------------------------------------------------------------
+
+_LINEAR_MOMENTUM_ABS_FLOOR: float = 1e-10
+_ANGULAR_MOMENTUM_ABS_FLOOR: float = 1e-8
+_ANGULAR_IMPULSE_NORM_EPS: float = 1e-10
+_QUATERNION_INTEGRATION_FACTOR: float = 0.5
 
 
 @dataclass
@@ -43,9 +52,7 @@ class RigidBodyState:
     orientation: np.ndarray = field(
         default_factory=lambda: np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
     )
-    angular_velocity: np.ndarray = field(
-        default_factory=lambda: np.zeros(3, dtype=np.float64)
-    )
+    angular_velocity: np.ndarray = field(default_factory=lambda: np.zeros(3, dtype=np.float64))
     mass: float = 100.0
     inertia: np.ndarray = field(
         default_factory=lambda: np.array([10.0, 10.0, 10.0], dtype=np.float64)
@@ -57,7 +64,7 @@ class RigidBodyState:
 
     def angular_momentum(self) -> np.ndarray:
         """Compute angular momentum ``L = I * ω`` (body frame)."""
-        return self.inertia * self.angular_velocity
+        return self.inertia * self.angular_velocity  # type: ignore[no-any-return]
 
     def kinetic_energy(self) -> float:
         """Compute total kinetic energy (translational + rotational)."""
@@ -128,7 +135,7 @@ class ZeroGDynamics:
         new_position = state.position + new_velocity * dt  # symplectic: use new vel
 
         # --- Angular dynamics (body frame) ---
-        # Euler's rotation equation: I * α = τ - ω × (I * ω)
+        # Euler's rotation equation: I * alpha = tau - omega x (I * omega)
         omega = state.angular_velocity
         inertia_omega = state.inertia * omega
         gyroscopic = np.cross(omega, inertia_omega)
@@ -138,7 +145,7 @@ class ZeroGDynamics:
         # --- Orientation update via quaternion integration ---
         # dq/dt = 0.5 * q ⊗ [0, ω]
         omega_quat = np.array([0.0, *new_angular_velocity], dtype=np.float64)
-        q_dot = 0.5 * quaternion_multiply(state.orientation, omega_quat)
+        q_dot = _QUATERNION_INTEGRATION_FACTOR * quaternion_multiply(state.orientation, omega_quat)
         new_orientation = state.orientation + q_dot * dt
         new_orientation = normalize_quaternion(new_orientation)
 
@@ -178,12 +185,12 @@ class ZeroGDynamics:
         error = np.linalg.norm(delta_p - applied_impulse)
         impulse_mag = np.linalg.norm(applied_impulse)
 
-        threshold = max(self._momentum_tolerance * impulse_mag, 1e-10)
-        if error > threshold:
+        threshold = max(self._momentum_tolerance * impulse_mag, _LINEAR_MOMENTUM_ABS_FLOOR)
+        if error > threshold:  # type: ignore[operator]
             logger.error(
                 "linear_momentum_violation",
                 error=float(error),
-                threshold=float(threshold),
+                threshold=float(threshold),  # type: ignore[arg-type]
                 delta_p=delta_p.tolist(),
                 impulse=applied_impulse.tolist(),
             )
@@ -203,14 +210,14 @@ class ZeroGDynamics:
         delta_momentum = new_momentum - prev_momentum
         expected = applied_impulse - gyroscopic_impulse
         error = np.linalg.norm(delta_momentum - expected)
-        impulse_mag = np.linalg.norm(expected) + 1e-10
+        impulse_mag = np.linalg.norm(expected) + _ANGULAR_IMPULSE_NORM_EPS
 
-        threshold = max(self._momentum_tolerance * impulse_mag, 1e-8)
-        if error > threshold:
+        threshold = max(self._momentum_tolerance * impulse_mag, _ANGULAR_MOMENTUM_ABS_FLOOR)
+        if error > threshold:  # type: ignore[operator]
             logger.error(
                 "angular_momentum_violation",
                 error=float(error),
-                threshold=float(threshold),
+                threshold=float(threshold),  # type: ignore[arg-type]
             )
             raise PhysicsViolationError(
                 f"Angular momentum conservation violated: error={error:.6e}, "

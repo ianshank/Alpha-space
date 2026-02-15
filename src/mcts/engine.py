@@ -24,6 +24,13 @@ from src.config import MCTSConfig
 
 logger = structlog.get_logger(__name__)
 
+# ---------------------------------------------------------------------------
+# Named constants
+# ---------------------------------------------------------------------------
+
+_LOG_VISITS_EPS: float = 1e-8
+_GREEDY_TEMPERATURE_THRESHOLD: float = 1e-8
+
 
 # ---------------------------------------------------------------------------
 # Protocols for dependency injection
@@ -130,7 +137,7 @@ class MCTSEngine:
         self,
         observation: dict[str, np.ndarray],
         env_model: EnvironmentModel | None = None,
-    ) -> tuple[np.ndarray, dict[str, float]]:
+    ) -> tuple[np.ndarray, dict[str, object]]:
         """Run MCTS from the given observation and return an improved action.
 
         Args:
@@ -158,7 +165,7 @@ class MCTSEngine:
         self._add_dirichlet_noise(root)
 
         # Run simulations
-        for sim_idx in range(self._config.num_simulations):
+        for _sim_idx in range(self._config.num_simulations):
             node = root
             search_path: list[MCTSNode] = [node]
 
@@ -169,14 +176,16 @@ class MCTSEngine:
                 search_path.append(node)
 
             # EVALUATE leaf and BACKUP
-            leaf_value = self._evaluate_leaf(
-                node, search_path, observation, root, env_model
-            )
+            leaf_value = self._evaluate_leaf(node, search_path, observation, root, env_model)
             self._backup(search_path, leaf_value)
 
         # Select action from root children based on visit counts
         action = self._select_action(root)
-        info = self._gather_stats(root)
+        info: dict[str, object] = dict(self._gather_stats(root))
+
+        # Include MCTS-improved action probabilities for policy training targets
+        _, action_probs = self.get_action_probs(root)
+        info["action_probs"] = action_probs
 
         logger.debug(
             "mcts_search_complete",
@@ -205,9 +214,7 @@ class MCTSEngine:
             return 0.0
 
         if env_model is not None and node.action is not None:
-            return self._evaluate_with_env(
-                node, search_path, observation, root, env_model
-            )
+            return self._evaluate_with_env(node, search_path, observation, root, env_model)
 
         # Value-only: re-predict at this state
         actions, leaf_value = self._predictor.predict(observation)
@@ -262,7 +269,7 @@ class MCTSEngine:
         alpha = self._config.dirichlet_alpha
         n_children = len(root.children)
         noise = np.random.dirichlet([alpha] * n_children)
-        for i, (idx, child) in enumerate(root.children.items()):
+        for i, (_idx, child) in enumerate(root.children.items()):
             child.prior = (1 - eps) * child.prior + eps * noise[i]
 
     def _select_child(self, node: MCTSNode) -> int:
@@ -278,9 +285,7 @@ class MCTSEngine:
 
         for idx, child in node.children.items():
             exploitation = child.q_value
-            exploration = (
-                self._config.c_puct * child.prior * sqrt_total / (1 + child.visit_count)
-            )
+            exploration = self._config.c_puct * child.prior * sqrt_total / (1 + child.visit_count)
             score = exploitation + exploration
             if score > best_score:
                 best_score = score
@@ -306,12 +311,12 @@ class MCTSEngine:
         visits = np.array([root.children[i].visit_count for i in indices], dtype=np.float64)
 
         temp = self._config.temperature
-        if temp < 1e-8:
+        if temp < _GREEDY_TEMPERATURE_THRESHOLD:
             # Greedy: pick most-visited
             best = indices[int(np.argmax(visits))]
         else:
             # Softmax over visit counts
-            logits = np.log(visits + 1e-8) / temp
+            logits = np.log(visits + _LOG_VISITS_EPS) / temp
             logits -= logits.max()
             probs = np.exp(logits)
             probs /= probs.sum()
@@ -356,8 +361,6 @@ class MCTSEngine:
 
         indices = sorted(root.children.keys())
         actions = [root.children[i].action for i in indices]
-        visits = np.array(
-            [root.children[i].visit_count for i in indices], dtype=np.float64
-        )
+        visits = np.array([root.children[i].visit_count for i in indices], dtype=np.float64)
         probs = visits / visits.sum() if visits.sum() > 0 else visits
-        return actions, probs
+        return actions, probs  # type: ignore[return-value]

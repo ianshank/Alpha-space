@@ -178,8 +178,10 @@ class TestPolicyHead:
         """Log std values must remain within the configured bounds."""
         min_log_std, max_log_std = -5.0, 2.0
         head = PolicyHead(
-            in_features=64, action_dim=6,
-            min_log_std=min_log_std, max_log_std=max_log_std,
+            in_features=64,
+            action_dim=6,
+            min_log_std=min_log_std,
+            max_log_std=max_log_std,
         ).to(device)
         # Use extreme features to try to push log_std out of bounds
         features = torch.randn(8, 64, device=device) * 100.0
@@ -241,7 +243,9 @@ class TestSpatialPolicyValueNetworkForward:
     """Tests for the full network forward pass."""
 
     def test_forward_output_types(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         net = SpatialPolicyValueNetwork(network_config).to(device)
         voxels, proprio = _make_inputs(network_config, batch_size=4, device=device)
@@ -251,7 +255,10 @@ class TestSpatialPolicyValueNetworkForward:
 
     @pytest.mark.parametrize("batch_size", [1, 4])
     def test_forward_output_shapes(
-        self, network_config: NetworkConfig, device: torch.device, batch_size: int,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
+        batch_size: int,
     ) -> None:
         net = SpatialPolicyValueNetwork(network_config).to(device)
         voxels, proprio = _make_inputs(network_config, batch_size, device)
@@ -263,7 +270,9 @@ class TestSpatialPolicyValueNetworkForward:
         assert sample.shape == (batch_size, network_config.action_dim)
 
     def test_forward_distribution_properties(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         """Policy distribution should have positive std and finite parameters."""
         net = SpatialPolicyValueNetwork(network_config).to(device)
@@ -276,7 +285,9 @@ class TestSpatialPolicyValueNetworkForward:
         assert torch.isfinite(mean).all(), "Mean must be finite"
 
     def test_forward_value_is_finite(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         net = SpatialPolicyValueNetwork(network_config).to(device)
         voxels, proprio = _make_inputs(network_config, batch_size=4, device=device)
@@ -294,7 +305,10 @@ class TestSpatialPolicyValueNetworkAct:
 
     @pytest.mark.parametrize("batch_size", [1, 4])
     def test_act_stochastic_output_shapes(
-        self, network_config: NetworkConfig, device: torch.device, batch_size: int,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
+        batch_size: int,
     ) -> None:
         net = SpatialPolicyValueNetwork(network_config).to(device)
         voxels, proprio = _make_inputs(network_config, batch_size, device)
@@ -305,7 +319,10 @@ class TestSpatialPolicyValueNetworkAct:
 
     @pytest.mark.parametrize("batch_size", [1, 4])
     def test_act_deterministic_output_shapes(
-        self, network_config: NetworkConfig, device: torch.device, batch_size: int,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
+        batch_size: int,
     ) -> None:
         net = SpatialPolicyValueNetwork(network_config).to(device)
         voxels, proprio = _make_inputs(network_config, batch_size, device)
@@ -315,7 +332,9 @@ class TestSpatialPolicyValueNetworkAct:
         assert values.shape == (batch_size, 1)
 
     def test_act_deterministic_is_repeatable(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         """Deterministic actions must be identical across two calls."""
         net = SpatialPolicyValueNetwork(network_config).to(device)
@@ -326,7 +345,9 @@ class TestSpatialPolicyValueNetworkAct:
         torch.testing.assert_close(a1, a2)
 
     def test_act_stochastic_varies(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         """Stochastic actions should not be identical across multiple samples.
 
@@ -337,14 +358,14 @@ class TestSpatialPolicyValueNetworkAct:
         net.eval()
         voxels, proprio = _make_inputs(network_config, batch_size=1, device=device)
         # Draw many samples and check they are not all equal
-        samples = torch.stack(
-            [net.act(voxels, proprio, deterministic=False)[0] for _ in range(10)]
-        )
+        samples = torch.stack([net.act(voxels, proprio, deterministic=False)[0] for _ in range(10)])
         # At least some must differ
         assert not torch.all(samples == samples[0])
 
     def test_act_log_probs_are_finite(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         net = SpatialPolicyValueNetwork(network_config).to(device)
         voxels, proprio = _make_inputs(network_config, batch_size=4, device=device)
@@ -352,7 +373,9 @@ class TestSpatialPolicyValueNetworkAct:
         assert torch.isfinite(log_probs).all()
 
     def test_act_deterministic_returns_mean(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         """Deterministic action must equal the distribution mean."""
         net = SpatialPolicyValueNetwork(network_config).to(device)
@@ -375,7 +398,10 @@ class TestSpatialPolicyValueNetworkEvaluateActions:
 
     @pytest.mark.parametrize("batch_size", [1, 4])
     def test_evaluate_actions_output_shapes(
-        self, network_config: NetworkConfig, device: torch.device, batch_size: int,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
+        batch_size: int,
     ) -> None:
         net = SpatialPolicyValueNetwork(network_config).to(device)
         voxels, proprio = _make_inputs(network_config, batch_size, device)
@@ -386,7 +412,9 @@ class TestSpatialPolicyValueNetworkEvaluateActions:
         assert values.shape == (batch_size, 1)
 
     def test_evaluate_actions_entropy_positive(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         """Gaussian entropy should be positive (non-degenerate distribution)."""
         net = SpatialPolicyValueNetwork(network_config).to(device)
@@ -397,7 +425,9 @@ class TestSpatialPolicyValueNetworkEvaluateActions:
         assert (entropy > 0).all() or torch.isfinite(entropy).all()
 
     def test_evaluate_actions_consistent_with_act(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         """Log-probs from evaluate_actions must match those from act."""
         net = SpatialPolicyValueNetwork(network_config).to(device)
@@ -405,17 +435,23 @@ class TestSpatialPolicyValueNetworkEvaluateActions:
         voxels, proprio = _make_inputs(network_config, batch_size=2, device=device)
         # Get actions and log_probs from act (deterministic for reproducibility)
         actions, log_probs_act, values_act = net.act(
-            voxels, proprio, deterministic=True,
+            voxels,
+            proprio,
+            deterministic=True,
         )
         # Evaluate the same actions
         log_probs_eval, _, values_eval = net.evaluate_actions(
-            voxels, proprio, actions,
+            voxels,
+            proprio,
+            actions,
         )
         torch.testing.assert_close(log_probs_act, log_probs_eval)
         torch.testing.assert_close(values_act, values_eval)
 
     def test_evaluate_actions_finite_outputs(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         net = SpatialPolicyValueNetwork(network_config).to(device)
         voxels, proprio = _make_inputs(network_config, batch_size=4, device=device)
@@ -435,7 +471,9 @@ class TestGradientFlow:
     """Verify that gradients propagate through the entire network."""
 
     def test_loss_backward_produces_gradients(
-        self, network_config: NetworkConfig, device: torch.device,
+        self,
+        network_config: NetworkConfig,
+        device: torch.device,
     ) -> None:
         net = SpatialPolicyValueNetwork(network_config).to(device)
         voxels, proprio = _make_inputs(network_config, batch_size=2, device=device)

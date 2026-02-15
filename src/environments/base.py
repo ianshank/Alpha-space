@@ -7,18 +7,19 @@ plus a factory function that returns the configured simulator backend.
 from __future__ import annotations
 
 import abc
-from typing import Any
+from typing import Any, ClassVar
 
 import gymnasium as gym
 import numpy as np
 import structlog
 
 from src.config import EnvironmentConfig, RewardConfig
+from src.utils.common import quaternion_angular_distance
 
 logger = structlog.get_logger(__name__)
 
 
-class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ignore[misc]
+class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):
     """Abstract Gymnasium environment for zero-gravity docking tasks.
 
     Subclasses must implement :meth:`_sim_reset` and :meth:`_sim_step`.
@@ -33,7 +34,7 @@ class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ig
         ``[max_thrust, max_torque]`` internally.
     """
 
-    metadata: dict[str, Any] = {"render_modes": ["human", "rgb_array"]}
+    metadata: ClassVar[dict[str, Any]] = {"render_modes": ["human", "rgb_array"]}  # type: ignore[misc]
 
     def __init__(
         self,
@@ -50,9 +51,7 @@ class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ig
         self._step_count = 0
 
         # Action space: normalised [-1, 1] for 6-DOF
-        self.action_space = gym.spaces.Box(
-            low=-1.0, high=1.0, shape=(6,), dtype=np.float32
-        )
+        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
 
         # Observation space (dict)
         self.observation_space = gym.spaces.Dict(
@@ -63,12 +62,8 @@ class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ig
                     shape=(voxel_channels, voxel_resolution, voxel_resolution, voxel_resolution),
                     dtype=np.float32,
                 ),
-                "proprio": gym.spaces.Box(
-                    low=-np.inf, high=np.inf, shape=(13,), dtype=np.float32
-                ),
-                "goal": gym.spaces.Box(
-                    low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32
-                ),
+                "proprio": gym.spaces.Box(low=-np.inf, high=np.inf, shape=(13,), dtype=np.float32),
+                "goal": gym.spaces.Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32),
             }
         )
 
@@ -152,12 +147,7 @@ class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ig
         proprio = obs["proprio"]
         goal = obs["goal"]
         pos_error = float(np.linalg.norm(proprio[:3] - goal[:3]))
-        # Quaternion distance (angle between orientations)
-        q_agent = proprio[3:7]
-        q_goal = goal[3:7]
-        dot = float(np.abs(np.dot(q_agent, q_goal)))
-        dot = min(dot, 1.0)
-        angle_error_deg = float(2.0 * np.degrees(np.arccos(dot)))
+        angle_error_deg = quaternion_angular_distance(proprio[3:7], goal[3:7])
 
         return (
             pos_error < self._env_cfg.position_tolerance

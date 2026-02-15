@@ -642,7 +642,9 @@ class TestLoadConfigFromYaml:
 
     def test_load_fixture_yaml(self) -> None:
         """The smoke test fixture YAML should load without error."""
-        fixture = Path("/home/user/Alpha-space/tests/fixtures/configs/smoke_test.yaml")
+        fixture = (
+            Path(__file__).resolve().parents[1] / "fixtures" / "configs" / "smoke_test.yaml"
+        )
         cfg = load_config(fixture)
         assert cfg.network.voxel_resolution == 16
         assert cfg.environment.simulator == "mock"
@@ -693,9 +695,7 @@ class TestLoadConfigEnvOverrides:
         cfg = load_config()
         assert cfg.environment.simulator == "unity"
 
-    def test_env_override_voxel_resolution(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_override_voxel_resolution(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ZEROG_VOXEL_RESOLUTION should override network.voxel_resolution."""
         monkeypatch.setenv("ZEROG_VOXEL_RESOLUTION", "32")
         cfg = load_config()
@@ -707,17 +707,13 @@ class TestLoadConfigEnvOverrides:
         cfg = load_config()
         assert cfg.network.hidden_dim == 128
 
-    def test_env_override_wandb_project(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_override_wandb_project(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ZEROG_WANDB_PROJECT should override wandb_project."""
         monkeypatch.setenv("ZEROG_WANDB_PROJECT", "my-project")
         cfg = load_config()
         assert cfg.wandb_project == "my-project"
 
-    def test_env_override_wandb_entity(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_override_wandb_entity(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ZEROG_WANDB_ENTITY should override wandb_entity."""
         monkeypatch.setenv("ZEROG_WANDB_ENTITY", "my-team")
         cfg = load_config()
@@ -735,41 +731,31 @@ class TestLoadConfigEnvOverrides:
         cfg = load_config(config_file)
         assert cfg.seed == 999
 
-    def test_env_override_mcts_simulations(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_override_mcts_simulations(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ZEROG_MCTS_SIMULATIONS should override mcts.num_simulations."""
         monkeypatch.setenv("ZEROG_MCTS_SIMULATIONS", "100")
         cfg = load_config()
         assert cfg.mcts.num_simulations == 100
 
-    def test_env_override_mcts_temperature(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_override_mcts_temperature(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ZEROG_MCTS_TEMPERATURE should override mcts.temperature."""
         monkeypatch.setenv("ZEROG_MCTS_TEMPERATURE", "0.5")
         cfg = load_config()
         assert cfg.mcts.temperature == pytest.approx(0.5)
 
-    def test_env_override_num_episodes(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_override_num_episodes(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ZEROG_NUM_EPISODES should override training.num_episodes."""
         monkeypatch.setenv("ZEROG_NUM_EPISODES", "500")
         cfg = load_config()
         assert cfg.training.num_episodes == 500
 
-    def test_env_override_parallel_envs(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_override_parallel_envs(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ZEROG_PARALLEL_ENVS should override environment.parallel_envs."""
         monkeypatch.setenv("ZEROG_PARALLEL_ENVS", "4")
         cfg = load_config()
         assert cfg.environment.parallel_envs == 4
 
-    def test_env_override_num_res_blocks(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_override_num_res_blocks(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ZEROG_NUM_RES_BLOCKS should override network.num_res_blocks."""
         monkeypatch.setenv("ZEROG_NUM_RES_BLOCKS", "3")
         cfg = load_config()
@@ -823,9 +809,7 @@ class TestLoadConfigExplicitOverrides:
         assert cfg.seed == 555
         assert cfg.training.batch_size == 32
 
-    def test_overrides_win_over_env(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_overrides_win_over_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Explicit overrides should take precedence over environment variables."""
         monkeypatch.setenv("ZEROG_SEED", "100")
         cfg = load_config(overrides={"seed": 200})

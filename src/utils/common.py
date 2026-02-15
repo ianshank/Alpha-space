@@ -39,7 +39,7 @@ def seed_everything(seed: int) -> None:
         raise ValueError(f"Seed must be non-negative, got {seed}")
 
     random.seed(seed)
-    np.random.seed(seed)  # noqa: NPY002 – legacy API required for broad compat
+    np.random.seed(seed)
     torch.manual_seed(seed)
 
     if torch.cuda.is_available():
@@ -102,10 +102,8 @@ def normalize_quaternion(q: np.ndarray) -> np.ndarray:
             raise ValueError(f"Expected quaternion of shape (4,), got {q.shape}")
         norm = np.linalg.norm(q)
         if norm < _QUATERNION_NORM_EPS:
-            raise ValueError(
-                f"Quaternion norm {norm} is below threshold {_QUATERNION_NORM_EPS}"
-            )
-        return q / norm
+            raise ValueError(f"Quaternion norm {norm} is below threshold {_QUATERNION_NORM_EPS}")
+        return q / norm  # type: ignore[no-any-return]
 
     if q.ndim == 2:
         if q.shape[1] != 4:
@@ -113,10 +111,9 @@ def normalize_quaternion(q: np.ndarray) -> np.ndarray:
         norms = np.linalg.norm(q, axis=1, keepdims=True)
         if np.any(norms < _QUATERNION_NORM_EPS):
             raise ValueError(
-                "One or more quaternion norms are below threshold "
-                f"{_QUATERNION_NORM_EPS}"
+                f"One or more quaternion norms are below threshold {_QUATERNION_NORM_EPS}"
             )
-        return q / norms
+        return q / norms  # type: ignore[no-any-return]
 
     raise ValueError(f"Expected 1-D or 2-D array, got ndim={q.ndim}")
 
@@ -162,7 +159,7 @@ def quaternion_to_rotation_matrix(q: np.ndarray) -> np.ndarray:
     rot[:, 2, 2] = 1.0 - 2.0 * (xx + yy)
 
     if single:
-        return rot[0]
+        return rot[0]  # type: ignore[no-any-return]
     return rot
 
 
@@ -202,8 +199,99 @@ def quaternion_multiply(q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
     )
 
     if single:
-        return result[0]
+        return result[0]  # type: ignore[no-any-return]
     return result
+
+
+# ---------------------------------------------------------------------------
+# Quaternion distance
+# ---------------------------------------------------------------------------
+
+
+def quaternion_angular_distance(q1: np.ndarray, q2: np.ndarray) -> float:
+    """Compute the angular distance (in degrees) between two quaternions.
+
+    Uses the geodesic distance on SO(3): the angle is ``2 * arccos(|q1 . q2|)``.
+    Handles the double-cover ambiguity by taking the absolute value of the dot
+    product.
+
+    Args:
+        q1: First quaternion ``[w, x, y, z]``, shape ``(4,)``.
+        q2: Second quaternion ``[w, x, y, z]``, shape ``(4,)``.
+
+    Returns:
+        Angular distance in degrees.
+    """
+    dot = float(np.abs(np.dot(q1, q2)))
+    dot = min(dot, 1.0)
+    return float(2.0 * np.degrees(np.arccos(dot)))
+
+
+# ---------------------------------------------------------------------------
+# Observation-to-tensor conversion
+# ---------------------------------------------------------------------------
+
+
+def obs_to_tensors(
+    observation: dict[str, np.ndarray],
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Convert a numpy observation dict to batched GPU/CPU tensors.
+
+    Args:
+        observation: Dict with ``voxels`` and ``proprio`` numpy arrays.
+        device: Target torch device.
+
+    Returns:
+        ``(voxels, proprio)`` as float tensors with a leading batch dimension.
+    """
+    voxels = torch.from_numpy(observation["voxels"]).unsqueeze(0).float().to(device)
+    proprio = torch.from_numpy(observation["proprio"]).unsqueeze(0).float().to(device)
+    return voxels, proprio
+
+
+# ---------------------------------------------------------------------------
+# Quaternion error to torque
+# ---------------------------------------------------------------------------
+
+
+def quaternion_error_torque(
+    current_quat: np.ndarray,
+    goal_quat: np.ndarray,
+    gain: float = 1.0,
+) -> np.ndarray:
+    """Compute proportional torque from quaternion orientation error.
+
+    Given the current and goal orientations as unit quaternions, compute the
+    error quaternion, extract the axis-angle representation, and return a
+    torque vector proportional to the rotation error.
+
+    Args:
+        current_quat: Current orientation quaternion ``[w, x, y, z]``.
+        goal_quat: Goal orientation quaternion ``[w, x, y, z]``.
+        gain: Proportional gain scaling the output torque.
+
+    Returns:
+        Torque vector of shape ``(3,)``.
+    """
+    cq = normalize_quaternion(current_quat)
+    gq = normalize_quaternion(goal_quat)
+
+    # Error quaternion: q_error = q_goal * conj(q_current)
+    cq_conj = cq * np.array([1, -1, -1, -1])
+    q_error = quaternion_multiply(gq, cq_conj)
+
+    w = np.clip(q_error[0], -1.0, 1.0)
+    angle = 2.0 * np.arccos(w)
+
+    if abs(angle) < 1e-6:
+        return np.zeros(3, dtype=np.float64)
+
+    xyz = q_error[1:4]
+    sin_half = np.sin(angle / 2.0)
+    axis = xyz / sin_half if abs(sin_half) > 1e-6 else xyz
+
+    return axis * angle * gain  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -230,10 +318,8 @@ def clamp_actions(
         ValueError: If ``min_val > max_val``.
     """
     if min_val > max_val:
-        raise ValueError(
-            f"min_val ({min_val}) must be <= max_val ({max_val})"
-        )
-    return np.clip(actions, min_val, max_val)
+        raise ValueError(f"min_val ({min_val}) must be <= max_val ({max_val})")
+    return np.clip(actions, min_val, max_val)  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -327,9 +413,7 @@ def validate_path(
             ) from None
 
         if common != resolved_base:
-            raise ValueError(
-                f"Path {resolved} is not relative to base directory {resolved_base}"
-            )
+            raise ValueError(f"Path {resolved} is not relative to base directory {resolved_base}")
 
     if not resolved.exists():
         raise FileNotFoundError(f"Path does not exist: {resolved}")

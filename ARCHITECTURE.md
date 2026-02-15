@@ -56,20 +56,30 @@ C4Container
     Container(ckpt, "Checkpoint Manager", "Python / PyTorch", "Versioned model save/load with schema migrations")
     Container(web_ui, "Web Dashboard", "Gradio / Plotly", "3D trajectory viewer, training metrics charts, config display")
     Container(config, "Configuration System", "Pydantic v2 / YAML", "Validated config models with env var overrides")
+    Container(agent, "Agent", "Python / PyTorch", "Owns policy gradient update, composes network + MCTS + optimizer, supports skill blending")
+    Container(skills, "Skills Module", "Python / NumPy", "5 spacecraft control primitives with registry/factory pattern")
+    Container(tools, "Tools Module", "Python / NumPy", "6 sensor and planning tools with registry/factory pattern")
+    Container(metrics_store, "Metrics Store", "Python / JSON", "File-based metrics persistence with atomic writes")
 
     ContainerDb(ckpt_store, "Checkpoint Store", "Filesystem / GCS", "Versioned .pt files with model weights, optimizer state, RNG states")
     ContainerDb(replay_store, "Replay Store", "Filesystem / Parquet", "Compressed trajectory data for offline analysis")
+    ContainerDb(metrics_json, "Metrics JSON", "Filesystem", "Episode metrics for web UI visualization")
 
     Rel(cli, config, "Loads YAML + env vars")
     Rel(cli, trainer, "Dispatches train/evaluate")
-    Rel(trainer, network, "Forward pass, backprop")
-    Rel(trainer, mcts, "MCTS search per step")
+    Rel(trainer, agent, "Delegates action selection and policy updates")
+    Rel(agent, network, "Forward pass, backprop")
+    Rel(agent, mcts, "MCTS search per step")
+    Rel(agent, skills, "Blends skill actions with NN policy")
     Rel(trainer, env_mgr, "Reset/step environments")
     Rel(trainer, replay, "Store/sample transitions")
     Rel(trainer, ckpt, "Save/load checkpoints")
+    Rel(trainer, metrics_store, "Persist episode metrics")
     Rel(env_mgr, physics, "Internal physics backend")
     Rel(ckpt, ckpt_store, "Read/write .pt files")
     Rel(replay, replay_store, "Flush to Parquet")
+    Rel(metrics_store, metrics_json, "Read/write JSON")
+    Rel(web_ui, metrics_store, "Read training metrics")
     Rel(web_ui, ckpt_store, "Load models for replay")
 ```
 
@@ -87,6 +97,10 @@ C4Container
 | Checkpoint Manager | Versioned save/load with migrations | Atomic writes, semver |
 | Web Dashboard | Visualization and monitoring | Gradio, Plotly 3D |
 | Configuration System | Validation, loading, override chain | Pydantic v2, YAML |
+| Agent | Policy gradient step, skill blending, action selection | PyTorch, NumPy |
+| Skills Module | Spacecraft control primitives (translate, align, brake, approach) | NumPy, quaternion math |
+| Tools Module | Sensor readings (distance, orientation) and planning estimates | NumPy |
+| Metrics Store | JSON metrics persistence for web UI | JSON, atomic writes |
 
 ---
 
@@ -413,6 +427,10 @@ classDiagram
         +checkpoint_interval: int
         +eval_interval: int
         +replay_buffer_size: int
+        +eval_episodes: int
+        +eval_seed_offset: int
+        +metrics_window: int
+        +max_checkpoints: int
     }
 
     class EnvironmentConfig {
@@ -514,6 +532,214 @@ register_env("unity", UnityZeroGEnv)
 
 ---
 
+## Level 4: Code Diagram — Agent Module
+
+```mermaid
+classDiagram
+    class AgentProtocol {
+        <<Protocol>>
+        +select_action(observation, use_mcts, deterministic, use_skills) tuple
+        +update(batch) dict
+        +train_mode()
+        +eval_mode()
+        +state_dict() dict
+        +load_state_dict(state)
+    }
+
+    class ZeroGAgent {
+        -_config: SystemConfig
+        -_device: torch.device
+        -_network: SpatialPolicyValueNetwork
+        -_optimizer: Adam
+        -_mcts: MCTSEngine
+        -_predictor: NetworkPredictor
+        -_skills: list~Skill~
+        -_skill_blend_alpha: float
+        +select_action(observation, use_mcts, deterministic, use_skills) tuple
+        +update(batch) dict
+        +train_mode()
+        +eval_mode()
+        +state_dict() dict
+        +load_state_dict(state)
+        -_network_action(observation, deterministic) ndarray
+        -_blend_skill_action(observation, nn_action, info) ndarray
+    }
+
+    AgentProtocol <|.. ZeroGAgent
+    ZeroGAgent --> SpatialPolicyValueNetwork : composes
+    ZeroGAgent --> MCTSEngine : composes
+    ZeroGAgent --> Skill : optional blending
+```
+
+### Agent Action Selection Flow
+
+```
+select_action(obs, use_mcts, use_skills):
+    │
+    ├── use_mcts=True:  action, info = MCTS.search(obs)
+    │
+    ├── use_mcts=False: action = network.act(obs, deterministic)
+    │
+    └── use_skills=True:
+        ├── skill_actions = [skill.compute_action(obs) for skill in skills]
+        ├── mean_skill = average(skill_actions)
+        └── blended = (1-α) * nn_action + α * mean_skill
+```
+
+---
+
+## Level 4: Code Diagram — Skills Module
+
+```mermaid
+classDiagram
+    class Skill {
+        <<abstract>>
+        +name* str
+        +weight float
+        +compute_action(observation)* ndarray
+    }
+
+    class TranslateToGoalSkill {
+        -_gain: float
+        +compute_action(observation) ndarray
+    }
+
+    class AlignToGoalSkill {
+        -_gain: float
+        +compute_action(observation) ndarray
+    }
+
+    class BrakeSkill {
+        -_gain: float
+        +compute_action(observation) ndarray
+    }
+
+    class StationKeepSkill {
+        -_gain: float
+        -_brake_gain: float
+        +compute_action(observation) ndarray
+    }
+
+    class ApproachSkill {
+        -_translate_gain: float
+        -_align_gain: float
+        -_brake_gain: float
+        -_brake_distance_threshold: float
+        +compute_action(observation) ndarray
+    }
+
+    class SkillRegistry {
+        +register_skill(cls)$ decorator
+        +get_skill(name)$ Skill
+        +list_skills()$ list~str~
+    }
+
+    Skill <|-- TranslateToGoalSkill
+    Skill <|-- AlignToGoalSkill
+    Skill <|-- BrakeSkill
+    Skill <|-- StationKeepSkill
+    Skill <|-- ApproachSkill
+    SkillRegistry ..> Skill : creates
+```
+
+### Skill Descriptions
+
+| Skill | Input | Output | Behaviour |
+|-------|-------|--------|-----------|
+| `TranslateToGoalSkill` | `proprio[:3]`, `goal[:3]` | thrust `[:3]`, zero torque `[3:]` | Proportional thrust toward goal position |
+| `AlignToGoalSkill` | `proprio[3:7]`, `goal[3:7]` | zero thrust `[:3]`, torque `[3:]` | Quaternion-error proportional torque |
+| `BrakeSkill` | `proprio[7:13]` | opposing thrust + torque | Damps linear and angular velocity |
+| `StationKeepSkill` | position + velocity | thrust + torque | Brake + gentle positional correction |
+| `ApproachSkill` | full state | blended thrust + torque | Composite: translate + align + distance-dependent brake |
+
+---
+
+## Level 4: Code Diagram — Tools Module
+
+```mermaid
+classDiagram
+    class Tool {
+        <<abstract>>
+        +name* str
+        +__call__(observation)* Any
+    }
+
+    class DistanceToGoalTool {
+        +__call__(observation) float
+    }
+
+    class OrientationErrorTool {
+        +__call__(observation) float
+    }
+
+    class VelocityMagnitudeTool {
+        +__call__(observation) dict
+    }
+
+    class DockingProgressTool {
+        +__call__(observation) float
+    }
+
+    class TrajectoryPlannerTool {
+        +__call__(observation) dict
+    }
+
+    class FuelEstimatorTool {
+        +__call__(observation) dict
+    }
+
+    class ToolRegistry {
+        +register_tool(cls)$ decorator
+        +get_tool(name)$ Tool
+        +list_tools()$ list~str~
+    }
+
+    Tool <|-- DistanceToGoalTool
+    Tool <|-- OrientationErrorTool
+    Tool <|-- VelocityMagnitudeTool
+    Tool <|-- DockingProgressTool
+    Tool <|-- TrajectoryPlannerTool
+    Tool <|-- FuelEstimatorTool
+    ToolRegistry ..> Tool : creates
+```
+
+---
+
+## Level 4: Code Diagram — Metrics Store
+
+```mermaid
+classDiagram
+    class MetricsStore {
+        +log_dir: Path
+        +metrics_file: Path
+        +append(episode, metrics)
+        +read_all() dict~str, list~float~~
+        -_read_raw() list~dict~
+    }
+
+    MetricsStore --> WebDashboard : read by
+    Trainer --> MetricsStore : writes to
+```
+
+### Metrics Persistence Flow
+
+```
+Trainer.train():
+    for each episode:
+        metrics = {reward, length, policy_loss, value_loss, entropy}
+        metrics_store.append(episode_idx, metrics)
+            → write JSON to temp file
+            → atomic replace metrics.json
+
+Web UI._refresh_metrics():
+    data = metrics_store.read_all()
+        → read metrics.json
+        → pivot: {metric_name: [values...]}
+    update plots with real training data
+```
+
+---
+
 ## Cross-Cutting Concerns
 
 ### Logging (structlog)
@@ -521,10 +747,13 @@ register_env("unity", UnityZeroGEnv)
 ```
 Level    │ What gets logged
 ─────────┼──────────────────────────────────────────
-DEBUG    │ Timer results, tensor stats, MCTS search details
-INFO     │ Episode start/end, checkpoint save/load, config loaded
-WARNING  │ Checkpoint version mismatch, optimizer state load failure
-ERROR    │ Physics violation, training divergence
+DEBUG    │ Timer results, tensor stats, MCTS search details,
+         │ skill actions, tool invocations, agent action selection
+INFO     │ Episode start/end, checkpoint save/load, config loaded,
+         │ agent creation, metrics store writes
+WARNING  │ Checkpoint version mismatch, optimizer state load failure,
+         │ skill action failure, missing metrics file
+ERROR    │ Physics violation, training divergence, metrics write failure
 CRITICAL │ Unrecoverable failures (not currently used)
 ```
 
@@ -574,3 +803,8 @@ log_gpu_memory("cuda:0")                     # Logs allocated/reserved GPU memor
 | 2026-02-07 | FIFO replay buffer (not prioritized) | Simpler, sufficient for self-play (all data equally important) |
 | 2026-02-07 | Atomic checkpoint writes (tmp + rename) | Prevents corrupted checkpoints on interruption |
 | 2026-02-07 | structlog for logging | Structured JSON in production, colored console in dev |
+| 2026-02-07 | Agent owns `update()` (not Trainer) | Clean separation: Trainer orchestrates episodes, Agent owns gradient step |
+| 2026-02-07 | Skills integrated into Agent via blend alpha | Configurable NN/skill mix; pure NN by default, skills for bootstrapping |
+| 2026-02-07 | Registry/factory pattern for skills and tools | Mirrors environment factory; extensible, discoverable, decorator-based |
+| 2026-02-07 | JSON file-based MetricsStore (not SQLite/Redis) | Zero extra dependencies, atomic writes, readable by Gradio web UI |
+| 2026-02-07 | Named constants for all magic numbers | Extracted to module-level `_UPPERCASE` vars for auditability |

@@ -40,51 +40,39 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # ---- train ----
     train_parser = sub.add_parser("train", help="Run self-play training.")
-    train_parser.add_argument(
-        "--config", type=str, default=None, help="Path to YAML config file."
-    )
+    train_parser.add_argument("--config", type=str, default=None, help="Path to YAML config file.")
     train_parser.add_argument(
         "--resume", type=str, default=None, help="Path to checkpoint to resume from."
     )
     train_parser.add_argument(
         "--episodes", type=int, default=None, help="Override number of episodes."
     )
-    train_parser.add_argument(
-        "--gpu", type=int, default=None, help="GPU index (or omit for auto)."
-    )
+    train_parser.add_argument("--gpu", type=int, default=None, help="GPU index (or omit for auto).")
     train_parser.add_argument(
         "--no-logging", action="store_true", help="Disable W&B / external logging."
     )
-    train_parser.add_argument(
-        "--debug", action="store_true", help="Enable debug mode."
-    )
-    train_parser.add_argument(
-        "--profile", action="store_true", help="Enable PyTorch profiler."
-    )
+    train_parser.add_argument("--debug", action="store_true", help="Enable debug mode.")
+    train_parser.add_argument("--profile", action="store_true", help="Enable PyTorch profiler.")
     train_parser.add_argument(
         "--pdb-on-error", action="store_true", help="Drop into pdb on exception."
     )
 
     # ---- evaluate ----
     eval_parser = sub.add_parser("evaluate", help="Evaluate a trained checkpoint.")
-    eval_parser.add_argument(
-        "--config", type=str, default=None, help="Path to YAML config file."
-    )
-    eval_parser.add_argument(
-        "--checkpoint", type=str, required=True, help="Path to checkpoint."
-    )
+    eval_parser.add_argument("--config", type=str, default=None, help="Path to YAML config file.")
+    eval_parser.add_argument("--checkpoint", type=str, required=True, help="Path to checkpoint.")
     eval_parser.add_argument(
         "--episodes", type=int, default=100, help="Number of evaluation episodes."
     )
-    eval_parser.add_argument(
-        "--use-mcts", action="store_true", help="Use MCTS during evaluation."
-    )
+    eval_parser.add_argument("--use-mcts", action="store_true", help="Use MCTS during evaluation.")
 
     return parser
 
 
 def _cmd_train(args: argparse.Namespace) -> None:
     """Execute the ``train`` subcommand."""
+    import contextlib
+
     overrides: dict[str, object] = {}
     if args.episodes is not None:
         overrides["training.num_episodes"] = args.episodes
@@ -99,35 +87,36 @@ def _cmd_train(args: argparse.Namespace) -> None:
 
     resume_path = Path(args.resume) if args.resume else None
 
-    profiler = None
-    if args.profile:
-        import torch
+    # Use ExitStack for safe context-manager handling of the optional profiler.
+    with contextlib.ExitStack() as stack:
+        if args.profile:
+            import torch
 
-        profiler = torch.profiler.profile(
-            activities=[
-                torch.profiler.ProfilerActivity.CPU,
-                torch.profiler.ProfilerActivity.CUDA,
-            ],
-            on_trace_ready=torch.profiler.tensorboard_trace_handler("./profiler_logs"),
-            record_shapes=True,
-            profile_memory=True,
-        )
-        profiler.__enter__()
+            profiler = torch.profiler.profile(
+                activities=[
+                    torch.profiler.ProfilerActivity.CPU,
+                    torch.profiler.ProfilerActivity.CUDA,
+                ],
+                on_trace_ready=torch.profiler.tensorboard_trace_handler("./profiler_logs"),
+                record_shapes=True,
+                profile_memory=True,
+            )
+            stack.enter_context(profiler)
 
-    try:
-        trainer = Trainer(config=config, resume_from=resume_path)
-        summary = trainer.train()
-        logger.info("training_summary", **summary)
-    except Exception:
-        logger.exception("training_failed")
-        if args.pdb_on_error:
-            import pdb
+        try:
+            trainer = Trainer(config=config, resume_from=resume_path)
+            summary = trainer.train()
+            logger.info("training_summary", **summary)
+        except KeyboardInterrupt:
+            logger.info("training_interrupted_by_user")
+            raise
+        except (FileNotFoundError, ValueError, RuntimeError):
+            logger.exception("training_failed")
+            if args.pdb_on_error:
+                import pdb
 
-            pdb.post_mortem()
-        raise
-    finally:
-        if profiler is not None:
-            profiler.__exit__(None, None, None)
+                pdb.post_mortem()
+            raise
 
 
 def _cmd_evaluate(args: argparse.Namespace) -> None:

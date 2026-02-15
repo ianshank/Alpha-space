@@ -39,9 +39,7 @@ def saved_checkpoint(system_config: SystemConfig) -> Path:
 
 
 class TestEvaluator:
-    def test_evaluator_runs(
-        self, system_config: SystemConfig, saved_checkpoint: Path
-    ) -> None:
+    def test_evaluator_runs(self, system_config: SystemConfig, saved_checkpoint: Path) -> None:
         """Evaluator completes N episodes and returns metrics."""
         evaluator = Evaluator(config=system_config, checkpoint_path=saved_checkpoint)
         result = evaluator.run(num_episodes=3, deterministic=True)
@@ -61,9 +59,7 @@ class TestEvaluator:
 
         assert result["num_episodes"] == 2
 
-    def test_evaluator_nonexistent_checkpoint_raises(
-        self, system_config: SystemConfig
-    ) -> None:
+    def test_evaluator_nonexistent_checkpoint_raises(self, system_config: SystemConfig) -> None:
         """Evaluator raises when checkpoint doesn't exist."""
         with pytest.raises(FileNotFoundError):
             Evaluator(

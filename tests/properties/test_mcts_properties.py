@@ -25,9 +25,7 @@ class _DummyPredictor:
         self._action_dim = action_dim
         self._n_actions = n_actions
 
-    def predict(
-        self, observation: dict[str, np.ndarray]
-    ) -> tuple[np.ndarray, float]:
+    def predict(self, observation: dict[str, np.ndarray]) -> tuple[np.ndarray, float]:
         actions = self._rng.randn(self._n_actions, self._action_dim).astype(np.float32)
         return actions, 0.0
 
@@ -40,9 +38,7 @@ class TestVisitCountConsistency:
         max_children=st.integers(min_value=2, max_value=16),
     )
     @settings(max_examples=30, deadline=None)
-    def test_root_visits_equal_sims_plus_one(
-        self, num_sims: int, max_children: int
-    ) -> None:
+    def test_root_visits_equal_sims_plus_one(self, num_sims: int, max_children: int) -> None:
         """Root visit count = num_simulations + 1 (initial expand)."""
         config = MCTSConfig(
             num_simulations=num_sims,

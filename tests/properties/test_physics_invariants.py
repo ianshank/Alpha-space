@@ -24,12 +24,8 @@ from src.utils.common import normalize_quaternion
 _reasonable_float = st.floats(
     min_value=-10.0, max_value=10.0, allow_nan=False, allow_infinity=False
 )
-_positive_float = st.floats(
-    min_value=0.1, max_value=1000.0, allow_nan=False, allow_infinity=False
-)
-_small_float = st.floats(
-    min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False
-)
+_positive_float = st.floats(min_value=0.1, max_value=1000.0, allow_nan=False, allow_infinity=False)
+_small_float = st.floats(min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False)
 
 _vec3 = st.tuples(_reasonable_float, _reasonable_float, _reasonable_float).map(
     lambda t: np.array(t, dtype=np.float64)
@@ -53,9 +49,9 @@ _torque_vec = st.tuples(
 
 _mass = st.floats(min_value=1.0, max_value=500.0, allow_nan=False, allow_infinity=False)
 
-_inertia = st.tuples(
-    _positive_float, _positive_float, _positive_float
-).map(lambda t: np.array(t, dtype=np.float64))
+_inertia = st.tuples(_positive_float, _positive_float, _positive_float).map(
+    lambda t: np.array(t, dtype=np.float64)
+)
 
 
 def _make_unit_quat(vals: tuple[float, float, float, float]) -> np.ndarray:
@@ -97,9 +93,7 @@ class TestLinearMomentumConservation:
             mass=mass,
         )
         dynamics = ZeroGDynamics(momentum_tolerance=1e-3)
-        new_state = dynamics.step(
-            state, force=force, torque=np.zeros(3), dt=dt, validate=False
-        )
+        new_state = dynamics.step(state, force=force, torque=np.zeros(3), dt=dt, validate=False)
 
         delta_p = new_state.linear_momentum() - state.linear_momentum()
         expected = force * dt
@@ -107,18 +101,12 @@ class TestLinearMomentumConservation:
 
     @given(velocity=_vec3, mass=_mass)
     @settings(max_examples=50, deadline=None)
-    def test_free_drift_momentum_constant(
-        self, velocity: np.ndarray, mass: float
-    ) -> None:
+    def test_free_drift_momentum_constant(self, velocity: np.ndarray, mass: float) -> None:
         """With zero force, linear momentum is unchanged."""
         state = RigidBodyState(velocity=velocity.copy(), mass=mass)
         dynamics = ZeroGDynamics()
-        new_state = dynamics.step(
-            state, force=np.zeros(3), torque=np.zeros(3), dt=0.05
-        )
-        np.testing.assert_allclose(
-            new_state.linear_momentum(), state.linear_momentum(), atol=1e-10
-        )
+        new_state = dynamics.step(state, force=np.zeros(3), torque=np.zeros(3), dt=0.05)
+        np.testing.assert_allclose(new_state.linear_momentum(), state.linear_momentum(), atol=1e-10)
 
 
 class TestQuaternionNormalisation:
@@ -175,22 +163,16 @@ class TestFreeDrift:
         dt = 0.05
         state = RigidBodyState(position=position.copy(), velocity=velocity.copy(), mass=mass)
         dynamics = ZeroGDynamics()
-        new_state = dynamics.step(
-            state, force=np.zeros(3), torque=np.zeros(3), dt=dt
-        )
+        new_state = dynamics.step(state, force=np.zeros(3), torque=np.zeros(3), dt=dt)
         expected_pos = position + velocity * dt
         np.testing.assert_allclose(new_state.position, expected_pos, atol=1e-10)
 
     @given(velocity=_vec3, mass=_mass)
     @settings(max_examples=50, deadline=None)
-    def test_velocity_unchanged_under_no_force(
-        self, velocity: np.ndarray, mass: float
-    ) -> None:
+    def test_velocity_unchanged_under_no_force(self, velocity: np.ndarray, mass: float) -> None:
         state = RigidBodyState(velocity=velocity.copy(), mass=mass)
         dynamics = ZeroGDynamics()
-        new_state = dynamics.step(
-            state, force=np.zeros(3), torque=np.zeros(3), dt=0.05
-        )
+        new_state = dynamics.step(state, force=np.zeros(3), torque=np.zeros(3), dt=0.05)
         np.testing.assert_allclose(new_state.velocity, velocity, atol=1e-10)
 
 

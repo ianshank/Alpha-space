@@ -28,13 +28,23 @@ from src.config import NetworkConfig
 
 logger = structlog.get_logger(__name__)
 
+# ---------------------------------------------------------------------------
+# Named architecture constants
+# ---------------------------------------------------------------------------
+
+_VOXEL_CONV_KERNEL: int = 3
+_VOXEL_CONV_STRIDE: int = 2
+_VOXEL_BASE_CHANNELS: int = 64
+_VOXEL_MAX_CHANNELS: int = 256
+_VALUE_HEAD_REDUCTION: int = 2
+
 
 # ---------------------------------------------------------------------------
 # Building blocks
 # ---------------------------------------------------------------------------
 
 
-class ResBlock3D(nn.Module):  # type: ignore[misc]
+class ResBlock3D(nn.Module):
     """Pre-activation 3D residual block with optional channel projection."""
 
     def __init__(self, channels: int) -> None:
@@ -49,10 +59,10 @@ class ResBlock3D(nn.Module):  # type: ignore[misc]
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x + self.block(x)
+        return x + self.block(x)  # type: ignore[no-any-return]
 
 
-class ResBlock1D(nn.Module):  # type: ignore[misc]
+class ResBlock1D(nn.Module):
     """1-D residual block for the shared trunk after flattening."""
 
     def __init__(self, dim: int) -> None:
@@ -67,7 +77,7 @@ class ResBlock1D(nn.Module):  # type: ignore[misc]
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x + self.block(x)
+        return x + self.block(x)  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +85,7 @@ class ResBlock1D(nn.Module):  # type: ignore[misc]
 # ---------------------------------------------------------------------------
 
 
-class VoxelEncoder(nn.Module):  # type: ignore[misc]
+class VoxelEncoder(nn.Module):
     """3D convolutional encoder for voxelised spatial observations.
 
     Processes a ``(B, C, D, H, W)`` voxel grid through a series of strided
@@ -89,9 +99,16 @@ class VoxelEncoder(nn.Module):  # type: ignore[misc]
         layers: list[nn.Module] = []
         ch = in_channels
         for i in range(n_stages):
-            out_ch = min(64 * (2**i), 256)
+            out_ch = min(_VOXEL_BASE_CHANNELS * (2**i), _VOXEL_MAX_CHANNELS)
             layers += [
-                nn.Conv3d(ch, out_ch, kernel_size=3, stride=2, padding=1, bias=False),
+                nn.Conv3d(
+                    ch,
+                    out_ch,
+                    kernel_size=_VOXEL_CONV_KERNEL,
+                    stride=_VOXEL_CONV_STRIDE,
+                    padding=1,
+                    bias=False,
+                ),
                 nn.BatchNorm3d(out_ch),
                 nn.ReLU(inplace=True),
             ]
@@ -115,10 +132,10 @@ class VoxelEncoder(nn.Module):  # type: ignore[misc]
         Returns:
             ``(B, out_features)`` feature vector.
         """
-        return self.projection(self.encoder(voxels))
+        return self.projection(self.encoder(voxels))  # type: ignore[no-any-return]
 
 
-class ProprioceptionEncoder(nn.Module):  # type: ignore[misc]
+class ProprioceptionEncoder(nn.Module):
     """MLP encoder for spacecraft proprioception (pose + velocity)."""
 
     def __init__(self, in_features: int, out_features: int) -> None:
@@ -131,7 +148,7 @@ class ProprioceptionEncoder(nn.Module):  # type: ignore[misc]
         )
 
     def forward(self, proprio: torch.Tensor) -> torch.Tensor:
-        return self.net(proprio)
+        return self.net(proprio)  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +156,7 @@ class ProprioceptionEncoder(nn.Module):  # type: ignore[misc]
 # ---------------------------------------------------------------------------
 
 
-class PolicyHead(nn.Module):  # type: ignore[misc]
+class PolicyHead(nn.Module):
     """Outputs a diagonal Gaussian distribution over continuous actions.
 
     The log standard deviation is learned but clamped to
@@ -164,22 +181,23 @@ class PolicyHead(nn.Module):  # type: ignore[misc]
         mean = self.mean_head(features)
         log_std = self.log_std_head(features)
         log_std = torch.clamp(log_std, self._min_log_std, self._max_log_std)
-        return Independent(Normal(mean, log_std.exp()), reinterpreted_batch_ndims=1)
+        return Independent(Normal(mean, log_std.exp()), reinterpreted_batch_ndims=1)  # type: ignore[no-untyped-call]
 
 
-class ValueHead(nn.Module):  # type: ignore[misc]
+class ValueHead(nn.Module):
     """Scalar state-value estimation."""
 
     def __init__(self, in_features: int) -> None:
         super().__init__()
+        mid = in_features // _VALUE_HEAD_REDUCTION
         self.net = nn.Sequential(
-            nn.Linear(in_features, in_features // 2),
+            nn.Linear(in_features, mid),
             nn.ReLU(inplace=True),
-            nn.Linear(in_features // 2, 1),
+            nn.Linear(mid, 1),
         )
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
-        return self.net(features)
+        return self.net(features)  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +205,7 @@ class ValueHead(nn.Module):  # type: ignore[misc]
 # ---------------------------------------------------------------------------
 
 
-class SpatialPolicyValueNetwork(nn.Module):  # type: ignore[misc]
+class SpatialPolicyValueNetwork(nn.Module):
     """Dual-headed policy/value network for 3D spatial control.
 
     Args:
@@ -285,11 +303,8 @@ class SpatialPolicyValueNetwork(nn.Module):  # type: ignore[misc]
             ``(B, action_dim)``, ``(B,)``, ``(B, 1)`` respectively.
         """
         action_dist, value = self.forward(voxels, proprio)
-        if deterministic:
-            actions = action_dist.base_dist.loc
-        else:
-            actions = action_dist.sample()
-        log_probs = action_dist.log_prob(actions)
+        actions = action_dist.base_dist.loc if deterministic else action_dist.sample()  # type: ignore[no-untyped-call]
+        log_probs = action_dist.log_prob(actions)  # type: ignore[no-untyped-call]
         return actions, log_probs, value
 
     def evaluate_actions(
@@ -312,6 +327,6 @@ class SpatialPolicyValueNetwork(nn.Module):  # type: ignore[misc]
             ``(B,)``, ``(B,)``, ``(B, 1)``.
         """
         action_dist, value = self.forward(voxels, proprio)
-        log_probs = action_dist.log_prob(actions)
-        entropy = action_dist.entropy()
+        log_probs = action_dist.log_prob(actions)  # type: ignore[no-untyped-call]
+        entropy = action_dist.entropy()  # type: ignore[no-untyped-call]
         return log_probs, entropy, value

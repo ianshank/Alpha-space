@@ -84,20 +84,16 @@ class CheckpointManager:
             "metrics": metrics or {},
             "rng_states": {
                 "torch": torch.get_rng_state(),
-                "torch_cuda": (
-                    torch.cuda.get_rng_state_all()
-                    if torch.cuda.is_available()
-                    else []
-                ),
+                "torch_cuda": (torch.cuda.get_rng_state_all() if torch.cuda.is_available() else []),
                 "numpy": np.random.get_state(),
                 "python": random.getstate(),
             },
         }
 
-        # Atomic write: save to temp then rename
+        # Atomic write: save to temp then replace (replace works cross-platform)
         tmp_path = path.with_suffix(".tmp")
         torch.save(checkpoint, tmp_path)
-        tmp_path.rename(path)
+        tmp_path.replace(path)
 
         logger.info("checkpoint_saved", path=str(path), episode=episode)
         self._prune_old_checkpoints()
@@ -206,7 +202,7 @@ class CheckpointManager:
             return
 
         candidates = sorted(self._dir.glob("episode_*.pt"), key=lambda p: p.stat().st_mtime)
-        while len(candidates) > self._max_to_keep:
-            oldest = candidates.pop(0)
+        excess = max(0, len(candidates) - self._max_to_keep)
+        for oldest in candidates[:excess]:
             oldest.unlink()
             logger.info("checkpoint_pruned", path=str(oldest))

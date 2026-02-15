@@ -8,6 +8,7 @@ storage and offline analysis.
 from __future__ import annotations
 
 import random
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,8 @@ import numpy as np
 import structlog
 
 logger = structlog.get_logger(__name__)
+
+_DEFAULT_PARQUET_COMPRESSION: str = "zstd"
 
 
 @dataclass
@@ -66,7 +69,7 @@ class ReplayBuffer:
         if capacity <= 0:
             raise ValueError(f"capacity must be positive, got {capacity}")
         self._capacity = capacity
-        self._buffer: list[Transition] = []
+        self._buffer: deque[Transition] = deque(maxlen=capacity)
         self._persist_dir = persist_dir
         self._total_added: int = 0
 
@@ -84,8 +87,6 @@ class ReplayBuffer:
 
     def add_transition(self, transition: Transition) -> None:
         """Add a single transition, evicting oldest if at capacity."""
-        if len(self._buffer) >= self._capacity:
-            self._buffer.pop(0)
         self._buffer.append(transition)
         self._total_added += 1
 
@@ -119,9 +120,7 @@ class ReplayBuffer:
             )
         return random.sample(self._buffer, batch_size)
 
-    def sample_batch_tensors(
-        self, batch_size: int
-    ) -> dict[str, np.ndarray | list[float]]:
+    def sample_batch_tensors(self, batch_size: int) -> dict[str, np.ndarray | list[float]]:
         """Sample and collate a batch into stacked numpy arrays.
 
         Returns:
@@ -135,9 +134,7 @@ class ReplayBuffer:
             "goal": np.stack([t.goal for t in batch]),
             "action": np.stack([t.action for t in batch]),
             "reward": np.array([t.reward for t in batch], dtype=np.float32),
-            "value_target": np.array(
-                [t.value_target for t in batch], dtype=np.float32
-            ),
+            "value_target": np.array([t.value_target for t in batch], dtype=np.float32),
             "done": np.array([t.done for t in batch], dtype=np.float32),
         }
 
@@ -177,9 +174,9 @@ class ReplayBuffer:
                 }
             )
 
-        table = pa.Table.from_pylist(records)
+        table = pa.Table.from_pylist(records)  # type: ignore[attr-defined]
         path = self._persist_dir / f"replay_{tag}_{self._total_added}.parquet"
-        pq.write_table(table, path, compression="zstd")
+        pq.write_table(table, path, compression=_DEFAULT_PARQUET_COMPRESSION)  # type: ignore[no-untyped-call]
         logger.info("replay_buffer_saved", path=str(path), size=len(self._buffer))
         return path
 

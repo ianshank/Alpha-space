@@ -168,11 +168,13 @@ class TestNormalizeQuaternion:
 
     def test_batch_normalization(self) -> None:
         """Batch of quaternions should each have unit norm."""
-        q = np.array([
-            [1.0, 0.0, 0.0, 0.0],
-            [2.0, 0.0, 0.0, 0.0],
-            [0.0, 3.0, 4.0, 0.0],
-        ])
+        q = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0, 0.0],
+                [0.0, 3.0, 4.0, 0.0],
+            ]
+        )
         result = normalize_quaternion(q)
         assert result.shape == (3, 4)
         norms = np.linalg.norm(result, axis=1)
@@ -188,21 +190,23 @@ class TestNormalizeQuaternion:
     def test_zero_quaternion_raises(self) -> None:
         """Zero quaternion should raise ValueError (norm below threshold)."""
         q = np.array([0.0, 0.0, 0.0, 0.0])
-        with pytest.raises(ValueError, match="norm.*below threshold"):
+        with pytest.raises(ValueError, match=r"norm.*below threshold"):
             normalize_quaternion(q)
 
     def test_near_zero_quaternion_raises(self) -> None:
         """Quaternion with extremely small norm should raise ValueError."""
         q = np.array([1e-15, 1e-15, 1e-15, 1e-15])
-        with pytest.raises(ValueError, match="norm.*below threshold"):
+        with pytest.raises(ValueError, match=r"norm.*below threshold"):
             normalize_quaternion(q)
 
     def test_batch_with_zero_quaternion_raises(self) -> None:
         """Batch containing a zero quaternion should raise ValueError."""
-        q = np.array([
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0],  # zero
-        ])
+        q = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],  # zero
+            ]
+        )
         with pytest.raises(ValueError, match="below threshold"):
             normalize_quaternion(q)
 
@@ -267,10 +271,12 @@ class TestQuaternionToRotationMatrix:
 
     def test_output_shape_batch(self) -> None:
         """Batch of N quaternions should produce shape (N, 3, 3)."""
-        q = np.array([
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-        ])
+        q = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+            ]
+        )
         rot = quaternion_to_rotation_matrix(q)
         assert rot.shape == (2, 3, 3)
 
@@ -309,9 +315,7 @@ class TestQuaternionToRotationMatrix:
         ],
         ids=["180_about_z", "180_about_x", "180_about_y"],
     )
-    def test_180_degree_rotations(
-        self, q: np.ndarray, expected_col: np.ndarray
-    ) -> None:
+    def test_180_degree_rotations(self, q: np.ndarray, expected_col: np.ndarray) -> None:
         """180-degree rotations about principal axes should leave that axis fixed."""
         rot = quaternion_to_rotation_matrix(q)
         # The axis of rotation should be an eigenvector with eigenvalue +1.
@@ -420,14 +424,18 @@ class TestQuaternionMultiply:
 
     def test_batch_multiply(self) -> None:
         """Batch multiplication should compute element-wise products."""
-        q1 = np.array([
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-        ])
-        q2 = np.array([
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-        ])
+        q1 = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+            ]
+        )
+        q2 = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+            ]
+        )
         result = quaternion_multiply(q1, q2)
         assert result.shape == (2, 4)
         # First: identity * identity = identity
@@ -438,10 +446,12 @@ class TestQuaternionMultiply:
     def test_mixed_single_batch_broadcast(self) -> None:
         """Single (4,) quaternion with batch (N, 4) should broadcast."""
         q1 = np.array([1.0, 0.0, 0.0, 0.0])  # identity, shape (4,)
-        q2 = np.array([
-            [0.5, 0.5, 0.5, 0.5],
-            [0.0, 1.0, 0.0, 0.0],
-        ])  # shape (2, 4)
+        q2 = np.array(
+            [
+                [0.5, 0.5, 0.5, 0.5],
+                [0.0, 1.0, 0.0, 0.0],
+            ]
+        )  # shape (2, 4)
         result = quaternion_multiply(q1, q2)
         assert result.shape == (2, 4)
 
@@ -509,7 +519,7 @@ class TestClampActions:
 
     def test_min_greater_than_max_raises(self) -> None:
         """min_val > max_val should raise ValueError."""
-        with pytest.raises(ValueError, match="min_val.*must be.*max_val"):
+        with pytest.raises(ValueError, match=r"min_val.*must be.*max_val"):
             clamp_actions(np.array([0.0]), 1.0, -1.0)
 
     def test_returns_new_array(self) -> None:
@@ -582,9 +592,8 @@ class TestTimer:
 
     def test_no_exception_suppression(self) -> None:
         """Timer should not suppress exceptions raised inside the context."""
-        with pytest.raises(RuntimeError, match="boom"):
-            with Timer("failing") as t:
-                raise RuntimeError("boom")
+        with pytest.raises(RuntimeError, match="boom"), Timer("failing") as t:
+            raise RuntimeError("boom")
         # elapsed should still be set even after exception
         assert t.elapsed >= 0.0
 
@@ -681,6 +690,10 @@ class TestValidatePath:
         result = validate_path(f)
         assert result == f.resolve()
 
+    @pytest.mark.skipif(
+        os.name == "nt",
+        reason="Creating symlinks on Windows requires admin privileges",
+    )
     def test_symlink_escape_raises(self, tmp_path: Path) -> None:
         """Symlinks that resolve outside base_dir should be caught."""
         base = tmp_path / "base"
@@ -692,9 +705,7 @@ class TestValidatePath:
         with pytest.raises(ValueError, match="not relative to base directory"):
             validate_path(link, base_dir=base)
 
-    def test_nonexistent_with_base_dir_raises_file_not_found(
-        self, tmp_path: Path
-    ) -> None:
+    def test_nonexistent_with_base_dir_raises_file_not_found(self, tmp_path: Path) -> None:
         """Non-existent path within a valid base_dir should raise FileNotFoundError."""
         f = tmp_path / "ghost.txt"
         with pytest.raises(FileNotFoundError):

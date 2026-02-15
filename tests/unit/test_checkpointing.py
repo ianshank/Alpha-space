@@ -60,10 +60,7 @@ def _state_dicts_equal(sd1: dict, sd2: dict) -> bool:
     """Check that two state_dicts have identical keys and values."""
     if sd1.keys() != sd2.keys():
         return False
-    for key in sd1:
-        if not torch.equal(sd1[key], sd2[key]):
-            return False
-    return True
+    return all(torch.equal(sd1[key], sd2[key]) for key in sd1)
 
 
 # ================================================================== #
@@ -124,9 +121,14 @@ class TestCheckpointSave:
         ckpt = torch.load(path, map_location="cpu", weights_only=False)
 
         required = {
-            "version", "episode", "timestamp",
-            "policy_net_state_dict", "optimizer_state_dict",
-            "config", "metrics", "rng_states",
+            "version",
+            "episode",
+            "timestamp",
+            "policy_net_state_dict",
+            "optimizer_state_dict",
+            "config",
+            "metrics",
+            "rng_states",
         }
         assert required.issubset(ckpt.keys())
         assert ckpt["version"] == CURRENT_VERSION
@@ -166,7 +168,7 @@ class TestCheckpointLoad:
 
         # Load into a fresh network
         net2 = _make_net()
-        episode, loaded_config, metrics = mgr.load(
+        episode, _loaded_config, _metrics = mgr.load(
             path, net2, device="cpu", restore_rng=False
         )
         assert episode == 5
@@ -181,7 +183,7 @@ class TestCheckpointLoad:
         # Do a fake training step to populate optimizer state
         dummy_voxels = torch.randn(1, 4, 16, 16, 16)
         dummy_proprio = torch.randn(1, 13)
-        dist, val = net(dummy_voxels, dummy_proprio)
+        _dist, val = net(dummy_voxels, dummy_proprio)
         loss = val.mean()
         loss.backward()
         opt.step()
@@ -348,9 +350,7 @@ class TestMigration:
         path = self._make_old_checkpoint(tmp_path, version="0.1.0")
         net = _make_net()
 
-        episode, config, metrics = mgr.load(
-            path, net, device="cpu", restore_rng=False
-        )
+        episode, config, metrics = mgr.load(path, net, device="cpu", restore_rng=False)
 
         # The migration should have added default reward config
         assert isinstance(config, SystemConfig)
@@ -550,3 +550,45 @@ class TestPruning:
 
         remaining = list(tmp_path.glob("episode_*.pt"))
         assert len(remaining) == 3
+
+
+# ================================================================== #
+# Corrupted checkpoint handling
+# ================================================================== #
+
+
+class TestCorruptedCheckpoints:
+    """Tests for handling corrupted checkpoint files."""
+
+    def test_truncated_file_raises(self, tmp_path: Path) -> None:
+        """A truncated checkpoint file should raise an error on load."""
+        mgr = CheckpointManager(checkpoint_dir=tmp_path)
+        net = _make_net()
+        opt = _make_optimizer(net)
+        config = _make_config()
+
+        # Save a valid checkpoint
+        path = mgr.save(net, opt, episode=1, config=config)
+
+        # Truncate the file to corrupt it
+        with open(path, "r+b") as f:
+            f.seek(0)
+            f.truncate(100)  # Keep only first 100 bytes
+
+        # Try to load it - should raise an error
+        net2 = _make_net()
+        with pytest.raises((RuntimeError, EOFError, OSError)):
+            mgr.load(path, net2, device="cpu", restore_rng=False)
+
+    def test_empty_file_raises(self, tmp_path: Path) -> None:
+        """An empty checkpoint file should raise an error on load."""
+        mgr = CheckpointManager(checkpoint_dir=tmp_path)
+        net = _make_net()
+
+        # Create an empty .pt file
+        empty_path = tmp_path / "empty.pt"
+        empty_path.touch()
+
+        # Try to load it - should raise an error
+        with pytest.raises((RuntimeError, EOFError, OSError)):
+            mgr.load(empty_path, net, device="cpu", restore_rng=False)

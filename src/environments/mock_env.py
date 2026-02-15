@@ -15,7 +15,7 @@ import structlog
 from src.config import EnvironmentConfig, RewardConfig
 from src.environments.base import ZeroGEnv
 from src.physics.zero_g_dynamics import RigidBodyState, ZeroGDynamics
-from src.utils.common import normalize_quaternion
+from src.utils.common import normalize_quaternion, quaternion_angular_distance
 
 logger = structlog.get_logger(__name__)
 
@@ -59,7 +59,8 @@ class MockZeroGEnv(ZeroGEnv):
 
     def set_state(self, state: object) -> None:
         """Restore environment from a snapshot."""
-        assert isinstance(state, dict)
+        if not isinstance(state, dict):
+            raise TypeError(f"Expected dict, got {type(state).__name__}")
         self._state = state["rb_state"].clone() if state["rb_state"] else None
         self._goal_pose = state["goal_pose"].copy()
         self._step_count = state["step_count"]
@@ -104,7 +105,8 @@ class MockZeroGEnv(ZeroGEnv):
         self,
         action: np.ndarray,
     ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
-        assert self._state is not None
+        if self._state is None:
+            raise RuntimeError("Environment not initialized; call reset() first")
 
         force = action[:3].astype(np.float64)
         torque = action[3:].astype(np.float64)
@@ -134,7 +136,8 @@ class MockZeroGEnv(ZeroGEnv):
 
     def _build_observation(self) -> dict[str, np.ndarray]:
         """Construct the observation dict from current state."""
-        assert self._state is not None
+        if self._state is None:
+            raise RuntimeError("Environment not initialized; call reset() first")
 
         # Voxels: empty workspace (all zeros) — mock env has no obstacles
         voxels = np.zeros(
@@ -143,12 +146,14 @@ class MockZeroGEnv(ZeroGEnv):
         )
 
         # Proprioception: [pos(3), quat(4), vel(3), ang_vel(3)]
-        proprio = np.concatenate([
-            self._state.position,
-            self._state.orientation,
-            self._state.velocity,
-            self._state.angular_velocity,
-        ]).astype(np.float32)
+        proprio = np.concatenate(
+            [
+                self._state.position,
+                self._state.orientation,
+                self._state.velocity,
+                self._state.angular_velocity,
+            ]
+        ).astype(np.float32)
 
         goal = self._goal_pose.astype(np.float32)
 
@@ -156,23 +161,23 @@ class MockZeroGEnv(ZeroGEnv):
 
     def _orientation_error(self) -> float:
         """Compute angular distance between agent and goal orientations (degrees)."""
-        assert self._state is not None
-        q_agent = self._state.orientation
-        q_goal = self._goal_pose[3:7]
-        dot = float(np.abs(np.dot(q_agent, q_goal)))
-        dot = min(dot, 1.0)
-        return float(2.0 * np.degrees(np.arccos(dot)))
+        if self._state is None:
+            raise RuntimeError("Environment not initialized; call reset() first")
+        return quaternion_angular_distance(
+            self._state.orientation, self._goal_pose[3:7]
+        )
 
     def _random_quaternion(self) -> np.ndarray:
-        """Sample a uniformly random unit quaternion."""
+        """Sample a uniformly random unit quaternion.
+
+        Uses the Shoemake uniform sampling method, reordered to the
+        Hamilton convention ``[w, x, y, z]`` used throughout this project.
+        """
         u = self._rng.random(3)
-        q = np.array(
-            [
-                np.sqrt(1 - u[0]) * np.sin(2 * np.pi * u[1]),
-                np.sqrt(1 - u[0]) * np.cos(2 * np.pi * u[1]),
-                np.sqrt(u[0]) * np.sin(2 * np.pi * u[2]),
-                np.sqrt(u[0]) * np.cos(2 * np.pi * u[2]),
-            ],
-            dtype=np.float64,
-        )
+        # Shoemake components (original order: x, y, z, w)
+        x = np.sqrt(1 - u[0]) * np.sin(2 * np.pi * u[1])
+        y = np.sqrt(1 - u[0]) * np.cos(2 * np.pi * u[1])
+        z = np.sqrt(u[0]) * np.sin(2 * np.pi * u[2])
+        w = np.sqrt(u[0]) * np.cos(2 * np.pi * u[2])
+        q = np.array([w, x, y, z], dtype=np.float64)
         return normalize_quaternion(q)
