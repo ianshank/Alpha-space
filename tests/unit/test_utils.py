@@ -190,13 +190,13 @@ class TestNormalizeQuaternion:
     def test_zero_quaternion_raises(self) -> None:
         """Zero quaternion should raise ValueError (norm below threshold)."""
         q = np.array([0.0, 0.0, 0.0, 0.0])
-        with pytest.raises(ValueError, match="norm.*below threshold"):
+        with pytest.raises(ValueError, match=r"norm.*below threshold"):
             normalize_quaternion(q)
 
     def test_near_zero_quaternion_raises(self) -> None:
         """Quaternion with extremely small norm should raise ValueError."""
         q = np.array([1e-15, 1e-15, 1e-15, 1e-15])
-        with pytest.raises(ValueError, match="norm.*below threshold"):
+        with pytest.raises(ValueError, match=r"norm.*below threshold"):
             normalize_quaternion(q)
 
     def test_batch_with_zero_quaternion_raises(self) -> None:
@@ -519,7 +519,7 @@ class TestClampActions:
 
     def test_min_greater_than_max_raises(self) -> None:
         """min_val > max_val should raise ValueError."""
-        with pytest.raises(ValueError, match="min_val.*must be.*max_val"):
+        with pytest.raises(ValueError, match=r"min_val.*must be.*max_val"):
             clamp_actions(np.array([0.0]), 1.0, -1.0)
 
     def test_returns_new_array(self) -> None:
@@ -592,9 +592,8 @@ class TestTimer:
 
     def test_no_exception_suppression(self) -> None:
         """Timer should not suppress exceptions raised inside the context."""
-        with pytest.raises(RuntimeError, match="boom"):
-            with Timer("failing") as t:
-                raise RuntimeError("boom")
+        with pytest.raises(RuntimeError, match="boom"), Timer("failing") as t:
+            raise RuntimeError("boom")
         # elapsed should still be set even after exception
         assert t.elapsed >= 0.0
 

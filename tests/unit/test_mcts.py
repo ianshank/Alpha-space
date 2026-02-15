@@ -275,7 +275,7 @@ class TestProgressiveWidening:
         )
         predictor = MockPredictor(action_dim=6, num_candidates=20)
         engine = MCTSEngine(config, predictor)
-        action, info = engine.search(_dummy_obs())
+        _action, info = engine.search(_dummy_obs())
         assert info["num_children"] <= config.max_children
 
 
@@ -321,7 +321,7 @@ class TestGreedySelection:
         )
         predictor = MockPredictor(action_dim=6)
         engine = MCTSEngine(config, predictor)
-        action, info = engine.search(_dummy_obs())
+        action, _info = engine.search(_dummy_obs())
         assert action.shape == (6,)
         assert np.isfinite(action).all()
 

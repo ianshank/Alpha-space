@@ -39,7 +39,7 @@ def seed_everything(seed: int) -> None:
         raise ValueError(f"Seed must be non-negative, got {seed}")
 
     random.seed(seed)
-    np.random.seed(seed)  # noqa: NPY002 – legacy API required for broad compat
+    np.random.seed(seed)
     torch.manual_seed(seed)
 
     if torch.cuda.is_available():
@@ -201,6 +201,53 @@ def quaternion_multiply(q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
     if single:
         return result[0]
     return result
+
+
+# ---------------------------------------------------------------------------
+# Quaternion distance
+# ---------------------------------------------------------------------------
+
+
+def quaternion_angular_distance(q1: np.ndarray, q2: np.ndarray) -> float:
+    """Compute the angular distance (in degrees) between two quaternions.
+
+    Uses the geodesic distance on SO(3): the angle is ``2 * arccos(|q1 . q2|)``.
+    Handles the double-cover ambiguity by taking the absolute value of the dot
+    product.
+
+    Args:
+        q1: First quaternion ``[w, x, y, z]``, shape ``(4,)``.
+        q2: Second quaternion ``[w, x, y, z]``, shape ``(4,)``.
+
+    Returns:
+        Angular distance in degrees.
+    """
+    dot = float(np.abs(np.dot(q1, q2)))
+    dot = min(dot, 1.0)
+    return float(2.0 * np.degrees(np.arccos(dot)))
+
+
+# ---------------------------------------------------------------------------
+# Observation-to-tensor conversion
+# ---------------------------------------------------------------------------
+
+
+def obs_to_tensors(
+    observation: dict[str, np.ndarray],
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Convert a numpy observation dict to batched GPU/CPU tensors.
+
+    Args:
+        observation: Dict with ``voxels`` and ``proprio`` numpy arrays.
+        device: Target torch device.
+
+    Returns:
+        ``(voxels, proprio)`` as float tensors with a leading batch dimension.
+    """
+    voxels = torch.from_numpy(observation["voxels"]).unsqueeze(0).float().to(device)
+    proprio = torch.from_numpy(observation["proprio"]).unsqueeze(0).float().to(device)
+    return voxels, proprio
 
 
 # ---------------------------------------------------------------------------

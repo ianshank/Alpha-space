@@ -165,7 +165,7 @@ class MCTSEngine:
         self._add_dirichlet_noise(root)
 
         # Run simulations
-        for sim_idx in range(self._config.num_simulations):
+        for _sim_idx in range(self._config.num_simulations):
             node = root
             search_path: list[MCTSNode] = [node]
 
@@ -269,7 +269,7 @@ class MCTSEngine:
         alpha = self._config.dirichlet_alpha
         n_children = len(root.children)
         noise = np.random.dirichlet([alpha] * n_children)
-        for i, (idx, child) in enumerate(root.children.items()):
+        for i, (_idx, child) in enumerate(root.children.items()):
             child.prior = (1 - eps) * child.prior + eps * noise[i]
 
     def _select_child(self, node: MCTSNode) -> int:

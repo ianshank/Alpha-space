@@ -642,7 +642,9 @@ class TestLoadConfigFromYaml:
 
     def test_load_fixture_yaml(self) -> None:
         """The smoke test fixture YAML should load without error."""
-        fixture = Path(__file__).resolve().parents[1] / "fixtures" / "configs" / "smoke_test.yaml"
+        fixture = (
+            Path(__file__).resolve().parents[1] / "fixtures" / "configs" / "smoke_test.yaml"
+        )
         cfg = load_config(fixture)
         assert cfg.network.voxel_resolution == 16
         assert cfg.environment.simulator == "mock"

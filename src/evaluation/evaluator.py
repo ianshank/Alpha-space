@@ -17,7 +17,7 @@ from src.checkpointing.checkpoint_manager import CheckpointManager
 from src.config import SystemConfig
 from src.environments.factory import make_env
 from src.networks.policy_value_net import SpatialPolicyValueNetwork
-from src.utils.common import get_device, seed_everything
+from src.utils.common import get_device, obs_to_tensors, seed_everything
 
 logger = structlog.get_logger(__name__)
 
@@ -104,22 +104,28 @@ class Evaluator:
     ) -> tuple[float, int, bool]:
         """Execute a single evaluation episode."""
         env = make_env(self._config)
-        obs, _ = env.reset(seed=self._config.seed + _EVAL_SEED_OFFSET + seed_offset)
+        try:
+            obs, _ = env.reset(seed=self._config.seed + _EVAL_SEED_OFFSET + seed_offset)
 
-        total_reward = 0.0
-        terminated = False
+            total_reward = 0.0
+            terminated = False
+            num_steps = 0
 
-        for step in range(self._config.environment.max_episode_steps):
-            with torch.no_grad():
-                voxels_t = torch.from_numpy(obs["voxels"]).unsqueeze(0).float().to(self._device)
-                proprio_t = torch.from_numpy(obs["proprio"]).unsqueeze(0).float().to(self._device)
-                actions, _, _ = self._network.act(voxels_t, proprio_t, deterministic=deterministic)
-            action = actions.squeeze(0).cpu().numpy()
-            action = np.clip(action, -1.0, 1.0).astype(np.float32)
+            for _ in range(self._config.environment.max_episode_steps):
+                with torch.no_grad():
+                    voxels_t, proprio_t = obs_to_tensors(obs, self._device)
+                    actions, _, _ = self._network.act(
+                        voxels_t, proprio_t, deterministic=deterministic
+                    )
+                action = actions.squeeze(0).cpu().numpy()
+                action = np.clip(action, -1.0, 1.0).astype(np.float32)
 
-            obs, reward, terminated, truncated, info = env.step(action)
-            total_reward += reward
-            if terminated or truncated:
-                break
+                obs, reward, terminated, truncated, _info = env.step(action)
+                total_reward += reward
+                num_steps += 1
+                if terminated or truncated:
+                    break
 
-        return total_reward, step + 1, terminated
+            return total_reward, num_steps, terminated
+        finally:
+            env.close()

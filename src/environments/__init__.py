@@ -3,4 +3,4 @@
 from src.environments.base import ZeroGEnv
 from src.environments.mock_env import MockZeroGEnv
 
-__all__ = ["ZeroGEnv", "MockZeroGEnv"]
+__all__ = ["MockZeroGEnv", "ZeroGEnv"]

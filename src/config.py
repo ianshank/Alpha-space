@@ -38,7 +38,7 @@ class NetworkConfig(BaseModel):  # type: ignore[misc]
     min_log_std: float = Field(default=-5.0, description="Minimum log-std for policy Gaussian")
     max_log_std: float = Field(default=2.0, description="Maximum log-std for policy Gaussian")
 
-    @field_validator("voxel_resolution")
+    @field_validator("voxel_resolution")  # type: ignore[untyped-decorator]
     @classmethod
     def _voxel_resolution_power_of_two(cls, v: int) -> int:
         if v & (v - 1) != 0:
@@ -119,17 +119,17 @@ class EnvironmentConfig(BaseModel):  # type: ignore[misc]
     )
     time_step: float = Field(default=0.05, gt=0.0, description="Physics timestep in seconds")
     max_thrust: float = Field(default=10.0, gt=0.0, description="Maximum thrust force (N)")
-    max_torque: float = Field(default=2.0, gt=0.0, description="Maximum torque (N·m)")
+    max_torque: float = Field(default=2.0, gt=0.0, description="Maximum torque (N*m)")
     position_tolerance: float = Field(
         default=0.1, gt=0.0, description="Docking success position threshold (m)"
     )
     orientation_tolerance_deg: float = Field(
-        default=5.0, gt=0.0, description="Docking success orientation threshold (°)"
+        default=5.0, gt=0.0, description="Docking success orientation threshold (deg)"
     )
     spacecraft_mass: float = Field(default=100.0, gt=0.0, description="Spacecraft mass (kg)")
     spacecraft_inertia: tuple[float, float, float] = Field(
         default=(10.0, 10.0, 10.0),
-        description="Principal moments of inertia (Ixx, Iyy, Izz) in kg·m²",
+        description="Principal moments of inertia (Ixx, Iyy, Izz) in kg*m^2",
     )
 
 

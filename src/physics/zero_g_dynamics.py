@@ -2,7 +2,7 @@
 
 Implements Newton-Euler equations in a zero-gravity environment:
   - Linear: F = m * a  (no gravity term)
-  - Angular: τ = I * α + ω × (I * ω)
+  - Angular: tau = I * alpha + omega x (I * omega)
 
 Quaternions are used for orientation and are re-normalised after every
 integration step to prevent numerical drift.
@@ -135,7 +135,7 @@ class ZeroGDynamics:
         new_position = state.position + new_velocity * dt  # symplectic: use new vel
 
         # --- Angular dynamics (body frame) ---
-        # Euler's rotation equation: I * α = τ - ω × (I * ω)
+        # Euler's rotation equation: I * alpha = tau - omega x (I * omega)
         omega = state.angular_velocity
         inertia_omega = state.inertia * omega
         gyroscopic = np.cross(omega, inertia_omega)

@@ -202,7 +202,7 @@ class CheckpointManager:
             return
 
         candidates = sorted(self._dir.glob("episode_*.pt"), key=lambda p: p.stat().st_mtime)
-        while len(candidates) > self._max_to_keep:
-            oldest = candidates.pop(0)
+        excess = max(0, len(candidates) - self._max_to_keep)
+        for oldest in candidates[:excess]:
             oldest.unlink()
             logger.info("checkpoint_pruned", path=str(oldest))

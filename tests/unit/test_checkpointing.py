@@ -60,10 +60,7 @@ def _state_dicts_equal(sd1: dict, sd2: dict) -> bool:
     """Check that two state_dicts have identical keys and values."""
     if sd1.keys() != sd2.keys():
         return False
-    for key in sd1:
-        if not torch.equal(sd1[key], sd2[key]):
-            return False
-    return True
+    return all(torch.equal(sd1[key], sd2[key]) for key in sd1)
 
 
 # ================================================================== #
@@ -171,7 +168,9 @@ class TestCheckpointLoad:
 
         # Load into a fresh network
         net2 = _make_net()
-        episode, loaded_config, metrics = mgr.load(path, net2, device="cpu", restore_rng=False)
+        episode, _loaded_config, _metrics = mgr.load(
+            path, net2, device="cpu", restore_rng=False
+        )
         assert episode == 5
         assert _state_dicts_equal(net.state_dict(), net2.state_dict())
 
@@ -184,7 +183,7 @@ class TestCheckpointLoad:
         # Do a fake training step to populate optimizer state
         dummy_voxels = torch.randn(1, 4, 16, 16, 16)
         dummy_proprio = torch.randn(1, 13)
-        dist, val = net(dummy_voxels, dummy_proprio)
+        _dist, val = net(dummy_voxels, dummy_proprio)
         loss = val.mean()
         loss.backward()
         opt.step()

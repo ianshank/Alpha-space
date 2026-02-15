@@ -2,4 +2,4 @@
 
 from src.replay_buffer.buffer import Episode, ReplayBuffer, Transition
 
-__all__ = ["ReplayBuffer", "Transition", "Episode"]
+__all__ = ["Episode", "ReplayBuffer", "Transition"]

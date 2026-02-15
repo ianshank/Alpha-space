@@ -6,4 +6,4 @@ from src.physics.zero_g_dynamics import (
     ZeroGDynamics,
 )
 
-__all__ = ["ZeroGDynamics", "RigidBodyState", "PhysicsViolationError"]
+__all__ = ["PhysicsViolationError", "RigidBodyState", "ZeroGDynamics"]

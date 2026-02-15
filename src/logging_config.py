@@ -45,12 +45,12 @@ def setup_logging(
     else:
         renderer = structlog.dev.ConsoleRenderer()
 
-    all_processors = shared_processors + [renderer]
+    all_processors = [*shared_processors, renderer]
 
     if log_file is not None:
         log_file.parent.mkdir(parents=True, exist_ok=True)
         factory: structlog.types.WrappedLogger = structlog.WriteLoggerFactory(
-            file=log_file.open("a"),  # noqa: SIM115 – intentional long-lived handle
+            file=log_file.open("a"),
         )
     else:
         factory = structlog.PrintLoggerFactory(file=sys.stdout)

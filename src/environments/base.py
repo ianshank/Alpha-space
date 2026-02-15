@@ -7,13 +7,14 @@ plus a factory function that returns the configured simulator backend.
 from __future__ import annotations
 
 import abc
-from typing import Any
+from typing import Any, ClassVar
 
 import gymnasium as gym
 import numpy as np
 import structlog
 
 from src.config import EnvironmentConfig, RewardConfig
+from src.utils.common import quaternion_angular_distance
 
 logger = structlog.get_logger(__name__)
 
@@ -33,7 +34,7 @@ class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ig
         ``[max_thrust, max_torque]`` internally.
     """
 
-    metadata: dict[str, Any] = {"render_modes": ["human", "rgb_array"]}
+    metadata: ClassVar[dict[str, Any]] = {"render_modes": ["human", "rgb_array"]}
 
     def __init__(
         self,
@@ -146,12 +147,7 @@ class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ig
         proprio = obs["proprio"]
         goal = obs["goal"]
         pos_error = float(np.linalg.norm(proprio[:3] - goal[:3]))
-        # Quaternion distance (angle between orientations)
-        q_agent = proprio[3:7]
-        q_goal = goal[3:7]
-        dot = float(np.abs(np.dot(q_agent, q_goal)))
-        dot = min(dot, 1.0)
-        angle_error_deg = float(2.0 * np.degrees(np.arccos(dot)))
+        angle_error_deg = quaternion_angular_distance(proprio[3:7], goal[3:7])
 
         return (
             pos_error < self._env_cfg.position_tolerance

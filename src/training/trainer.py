@@ -24,14 +24,14 @@ from src.environments.factory import make_env
 from src.mcts.engine import MCTSEngine
 from src.networks.policy_value_net import SpatialPolicyValueNetwork
 from src.replay_buffer.buffer import Episode, ReplayBuffer, Transition
-from src.utils.common import Timer, get_device, seed_everything
+from src.utils.common import Timer, get_device, obs_to_tensors, seed_everything
 from src.visualization.metrics_store import MetricsStore
 
 logger = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Neural-network ↔ MCTS adapter
+# Neural-network <-> MCTS adapter
 # ---------------------------------------------------------------------------
 
 
@@ -68,14 +68,12 @@ class NetworkPredictor:
             observation: Dict with ``voxels`` and ``proprio``.
 
         Returns:
-            ``(candidate_actions, value)`` — actions shape
+            ``(candidate_actions, value)`` -- actions shape
             ``(num_candidates, action_dim)``, value is a scalar.
         """
         self._net.eval()
         with torch.no_grad():
-            voxels = torch.from_numpy(observation["voxels"]).unsqueeze(0).float().to(self._device)
-            proprio = torch.from_numpy(observation["proprio"]).unsqueeze(0).float().to(self._device)
-
+            voxels, proprio = obs_to_tensors(observation, self._device)
             action_dist, value = self._net(voxels, proprio)
             candidates = action_dist.sample((self._num_candidates,))  # (K, 1, action_dim)
             candidates = candidates.squeeze(1)  # (K, action_dim)
@@ -257,48 +255,52 @@ class Trainer:
     def _run_episode(self, episode_idx: int) -> Episode:
         """Generate one self-play episode with MCTS."""
         env = make_env(self._config)
-        obs, _ = env.reset(seed=self._config.seed + episode_idx)
+        try:
+            obs, _ = env.reset(seed=self._config.seed + episode_idx)
 
-        episode = Episode()
-        total_reward = 0.0
+            episode = Episode()
+            total_reward = 0.0
+            terminated = False
 
-        for step in range(self._config.environment.max_episode_steps):
-            # MCTS search
-            action, mcts_info = self._mcts.search(observation=obs)
+            for _step in range(self._config.environment.max_episode_steps):
+                # MCTS search
+                action, mcts_info = self._mcts.search(observation=obs)
 
-            # Clip to valid range
-            action = np.clip(action, -1.0, 1.0).astype(np.float32)
+                # Clip to valid range
+                action = np.clip(action, -1.0, 1.0).astype(np.float32)
 
-            # Step environment
-            next_obs, reward, terminated, truncated, info = env.step(action)
+                # Step environment
+                next_obs, reward, terminated, truncated, _info = env.step(action)
 
-            # Store transition (including MCTS policy targets)
-            mcts_policy = mcts_info.get("action_probs")
-            transition = Transition(
-                voxels=obs["voxels"],
-                proprio=obs["proprio"],
-                goal=obs["goal"],
-                action=action,
-                reward=reward,
-                mcts_policy=mcts_policy if isinstance(mcts_policy, np.ndarray) else None,
-                value_target=0.0,  # will be computed below
-                done=terminated or truncated,
-            )
-            episode.transitions.append(transition)
-            total_reward += reward
+                # Store transition (including MCTS policy targets)
+                mcts_policy = mcts_info.get("action_probs")
+                transition = Transition(
+                    voxels=obs["voxels"],
+                    proprio=obs["proprio"],
+                    goal=obs["goal"],
+                    action=action,
+                    reward=reward,
+                    mcts_policy=mcts_policy if isinstance(mcts_policy, np.ndarray) else None,
+                    value_target=0.0,  # will be computed below
+                    done=terminated or truncated,
+                )
+                episode.transitions.append(transition)
+                total_reward += reward
 
-            if terminated or truncated:
-                break
-            obs = next_obs
+                if terminated or truncated:
+                    break
+                obs = next_obs
 
-        # Compute discounted value targets (backward pass)
-        self._compute_value_targets(episode)
+            # Compute discounted value targets (backward pass)
+            self._compute_value_targets(episode)
 
-        episode.total_reward = total_reward
-        episode.length = len(episode.transitions)
-        episode.success = terminated if "terminated" in dir() else False
+            episode.total_reward = total_reward
+            episode.length = len(episode.transitions)
+            episode.success = terminated
 
-        return episode
+            return episode
+        finally:
+            env.close()
 
     def _compute_value_targets(self, episode: Episode) -> None:
         """Compute discounted-return value targets for each transition."""
@@ -380,26 +382,29 @@ class Trainer:
 
         for i in range(num_episodes):
             env = make_env(self._config)
-            obs, _ = env.reset(seed=self._config.seed + eval_seed_offset + i)
-            total_reward = 0.0
+            try:
+                obs, _ = env.reset(seed=self._config.seed + eval_seed_offset + i)
+                total_reward = 0.0
+                terminated = False
 
-            for _ in range(self._config.environment.max_episode_steps):
-                with torch.no_grad():
-                    voxels_t = torch.from_numpy(obs["voxels"]).unsqueeze(0).float().to(self._device)
-                    proprio_t = (
-                        torch.from_numpy(obs["proprio"]).unsqueeze(0).float().to(self._device)
-                    )
-                    actions, _, _ = self._network.act(voxels_t, proprio_t, deterministic=True)
-                action = actions.squeeze(0).cpu().numpy()
-                action = np.clip(action, -1.0, 1.0).astype(np.float32)
+                for _ in range(self._config.environment.max_episode_steps):
+                    with torch.no_grad():
+                        voxels_t, proprio_t = obs_to_tensors(obs, self._device)
+                        actions, _, _ = self._network.act(
+                            voxels_t, proprio_t, deterministic=True
+                        )
+                    action = actions.squeeze(0).cpu().numpy()
+                    action = np.clip(action, -1.0, 1.0).astype(np.float32)
 
-                obs, reward, terminated, truncated, info = env.step(action)
-                total_reward += reward
-                if terminated or truncated:
-                    break
+                    obs, reward, terminated, truncated, _info = env.step(action)
+                    total_reward += reward
+                    if terminated or truncated:
+                        break
 
-            rewards.append(total_reward)
-            successes.append(1.0 if terminated else 0.0)
+                rewards.append(total_reward)
+                successes.append(1.0 if terminated else 0.0)
+            finally:
+                env.close()
 
         return {
             "eval_mean_reward": float(np.mean(rewards)),
@@ -411,7 +416,7 @@ class Trainer:
     # ------------------------------------------------------------------ #
 
     def _latest_metrics(self) -> dict[str, float]:
-        """Return the recent episodes' mean metrics."""
+        """Return rolling-window mean metrics."""
         window = self._config.training.metrics_window
         result: dict[str, float] = {}
         for key, values in self._metrics.items():

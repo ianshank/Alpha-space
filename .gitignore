@@ -39,6 +39,9 @@ coverage.xml
 # Mypy
 .mypy_cache/
 
+# Ruff
+.ruff_cache/
+
 # Pytest
 .pytest_cache/
 
@@ -50,6 +53,9 @@ coverage.xml
 
 # Claude Code
 .claude/
+
+# W&B
+wandb/
 
 # OS
 .DS_Store

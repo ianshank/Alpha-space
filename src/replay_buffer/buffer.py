@@ -8,6 +8,7 @@ storage and offline analysis.
 from __future__ import annotations
 
 import random
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -68,7 +69,7 @@ class ReplayBuffer:
         if capacity <= 0:
             raise ValueError(f"capacity must be positive, got {capacity}")
         self._capacity = capacity
-        self._buffer: list[Transition] = []
+        self._buffer: deque[Transition] = deque(maxlen=capacity)
         self._persist_dir = persist_dir
         self._total_added: int = 0
 
@@ -86,8 +87,6 @@ class ReplayBuffer:
 
     def add_transition(self, transition: Transition) -> None:
         """Add a single transition, evicting oldest if at capacity."""
-        if len(self._buffer) >= self._capacity:
-            self._buffer.pop(0)
         self._buffer.append(transition)
         self._total_added += 1
 

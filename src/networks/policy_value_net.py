@@ -303,10 +303,7 @@ class SpatialPolicyValueNetwork(nn.Module):  # type: ignore[misc]
             ``(B, action_dim)``, ``(B,)``, ``(B, 1)`` respectively.
         """
         action_dist, value = self.forward(voxels, proprio)
-        if deterministic:
-            actions = action_dist.base_dist.loc
-        else:
-            actions = action_dist.sample()
+        actions = action_dist.base_dist.loc if deterministic else action_dist.sample()
         log_probs = action_dist.log_prob(actions)
         return actions, log_probs, value
 

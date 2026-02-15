@@ -91,7 +91,7 @@ class TestEnvironmentIntegration:
     def test_make_env_from_config(self, system_config: SystemConfig) -> None:
         """Factory creates a usable environment."""
         env = make_env(system_config)
-        obs, info = env.reset(seed=42)
+        obs, _info = env.reset(seed=42)
 
         assert "voxels" in obs
         assert "proprio" in obs
@@ -101,10 +101,10 @@ class TestEnvironmentIntegration:
     def test_env_step_produces_valid_output(self, system_config: SystemConfig) -> None:
         """Stepping the environment returns well-formed outputs."""
         env = make_env(system_config)
-        obs, _ = env.reset(seed=42)
+        _obs, _ = env.reset(seed=42)
 
         action = np.zeros(6, dtype=np.float32)
-        next_obs, reward, terminated, truncated, info = env.step(action)
+        _next_obs, reward, terminated, truncated, info = env.step(action)
 
         assert isinstance(reward, float)
         assert isinstance(terminated, bool)
@@ -114,14 +114,14 @@ class TestEnvironmentIntegration:
     def test_episode_runs_to_truncation(self, system_config: SystemConfig) -> None:
         """An episode truncates at max_episode_steps."""
         env = make_env(system_config)
-        obs, _ = env.reset(seed=42)
+        _obs, _ = env.reset(seed=42)
         max_steps = system_config.environment.max_episode_steps
 
         step_count = 0
         done = False
         for _ in range(max_steps + 5):
             action = np.random.uniform(-1, 1, size=6).astype(np.float32)
-            obs, reward, terminated, truncated, info = env.step(action)
+            _obs, _reward, terminated, truncated, _info = env.step(action)
             step_count += 1
             if terminated or truncated:
                 done = True
