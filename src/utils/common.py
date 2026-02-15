@@ -103,7 +103,7 @@ def normalize_quaternion(q: np.ndarray) -> np.ndarray:
         norm = np.linalg.norm(q)
         if norm < _QUATERNION_NORM_EPS:
             raise ValueError(f"Quaternion norm {norm} is below threshold {_QUATERNION_NORM_EPS}")
-        return q / norm
+        return q / norm  # type: ignore[no-any-return]
 
     if q.ndim == 2:
         if q.shape[1] != 4:
@@ -113,7 +113,7 @@ def normalize_quaternion(q: np.ndarray) -> np.ndarray:
             raise ValueError(
                 f"One or more quaternion norms are below threshold {_QUATERNION_NORM_EPS}"
             )
-        return q / norms
+        return q / norms  # type: ignore[no-any-return]
 
     raise ValueError(f"Expected 1-D or 2-D array, got ndim={q.ndim}")
 
@@ -159,7 +159,7 @@ def quaternion_to_rotation_matrix(q: np.ndarray) -> np.ndarray:
     rot[:, 2, 2] = 1.0 - 2.0 * (xx + yy)
 
     if single:
-        return rot[0]
+        return rot[0]  # type: ignore[no-any-return]
     return rot
 
 
@@ -199,7 +199,7 @@ def quaternion_multiply(q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
     )
 
     if single:
-        return result[0]
+        return result[0]  # type: ignore[no-any-return]
     return result
 
 
@@ -275,7 +275,7 @@ def clamp_actions(
     """
     if min_val > max_val:
         raise ValueError(f"min_val ({min_val}) must be <= max_val ({max_val})")
-    return np.clip(actions, min_val, max_val)
+    return np.clip(actions, min_val, max_val)  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------

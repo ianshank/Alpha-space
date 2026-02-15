@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from pydantic import BaseModel, Field, field_validator
 
 # ---------------------------------------------------------------------------
@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, field_validator
 # ---------------------------------------------------------------------------
 
 
-class NetworkConfig(BaseModel):  # type: ignore[misc]
+class NetworkConfig(BaseModel):
     """Policy / Value network architecture hyperparameters."""
 
     voxel_resolution: int = Field(default=64, ge=16, le=128, description="Voxel grid size (NxNxN)")
@@ -38,7 +38,7 @@ class NetworkConfig(BaseModel):  # type: ignore[misc]
     min_log_std: float = Field(default=-5.0, description="Minimum log-std for policy Gaussian")
     max_log_std: float = Field(default=2.0, description="Maximum log-std for policy Gaussian")
 
-    @field_validator("voxel_resolution")  # type: ignore[untyped-decorator]
+    @field_validator("voxel_resolution")
     @classmethod
     def _voxel_resolution_power_of_two(cls, v: int) -> int:
         if v & (v - 1) != 0:
@@ -46,7 +46,7 @@ class NetworkConfig(BaseModel):  # type: ignore[misc]
         return v
 
 
-class MCTSConfig(BaseModel):  # type: ignore[misc]
+class MCTSConfig(BaseModel):
     """Monte Carlo Tree Search hyperparameters."""
 
     num_simulations: int = Field(
@@ -66,7 +66,7 @@ class MCTSConfig(BaseModel):  # type: ignore[misc]
     discount: float = Field(default=0.99, ge=0.0, le=1.0, description="Reward discount factor")
 
 
-class TrainingConfig(BaseModel):  # type: ignore[misc]
+class TrainingConfig(BaseModel):
     """Training loop hyperparameters."""
 
     num_episodes: int = Field(default=1000, ge=1, description="Total self-play episodes")
@@ -102,7 +102,7 @@ class TrainingConfig(BaseModel):  # type: ignore[misc]
     )
 
 
-class EnvironmentConfig(BaseModel):  # type: ignore[misc]
+class EnvironmentConfig(BaseModel):
     """Simulation environment settings."""
 
     simulator: str = Field(
@@ -133,7 +133,7 @@ class EnvironmentConfig(BaseModel):  # type: ignore[misc]
     )
 
 
-class RewardConfig(BaseModel):  # type: ignore[misc]
+class RewardConfig(BaseModel):
     """Reward shaping parameters."""
 
     position_weight: float = Field(
@@ -154,7 +154,7 @@ class RewardConfig(BaseModel):  # type: ignore[misc]
 # ---------------------------------------------------------------------------
 
 
-class SystemConfig(BaseModel):  # type: ignore[misc]
+class SystemConfig(BaseModel):
     """Root configuration container for the entire system."""
 
     network: NetworkConfig = Field(default_factory=NetworkConfig)

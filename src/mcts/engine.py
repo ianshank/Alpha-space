@@ -363,4 +363,4 @@ class MCTSEngine:
         actions = [root.children[i].action for i in indices]
         visits = np.array([root.children[i].visit_count for i in indices], dtype=np.float64)
         probs = visits / visits.sum() if visits.sum() > 0 else visits
-        return actions, probs
+        return actions, probs  # type: ignore[return-value]

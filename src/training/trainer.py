@@ -348,7 +348,7 @@ class Trainer:
             )
 
             self._optimizer.zero_grad()
-            loss.backward()
+            loss.backward()  # type: ignore[no-untyped-call]
 
             # Gradient clipping
             grad_norm = nn.utils.clip_grad_norm_(self._network.parameters(), cfg.gradient_clip_norm)

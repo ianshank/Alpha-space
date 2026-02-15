@@ -577,7 +577,7 @@ class TestCorruptedCheckpoints:
 
         # Try to load it - should raise an error
         net2 = _make_net()
-        with pytest.raises(Exception):  # torch.load raises various exceptions for corrupt files
+        with pytest.raises((RuntimeError, EOFError, OSError)):
             mgr.load(path, net2, device="cpu", restore_rng=False)
 
     def test_empty_file_raises(self, tmp_path: Path) -> None:
@@ -590,5 +590,5 @@ class TestCorruptedCheckpoints:
         empty_path.touch()
 
         # Try to load it - should raise an error
-        with pytest.raises(Exception):  # torch.load or unpickling will fail
+        with pytest.raises((RuntimeError, EOFError, OSError)):
             mgr.load(empty_path, net, device="cpu", restore_rng=False)

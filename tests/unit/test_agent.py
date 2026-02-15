@@ -205,7 +205,7 @@ class TestUpdate:
 
         # Check that at least one parameter changed
         params_changed = False
-        for p_before, p_after in zip(param_before, param_after):
+        for p_before, p_after in zip(param_before, param_after, strict=True):
             if not torch.allclose(p_before, p_after):
                 params_changed = True
                 break
@@ -296,7 +296,7 @@ class TestStateDict:
         agent2.load_state_dict(state)
 
         # Verify parameters match
-        for p1, p2 in zip(agent1.network.parameters(), agent2.network.parameters()):
+        for p1, p2 in zip(agent1.network.parameters(), agent2.network.parameters(), strict=True):
             torch.testing.assert_close(p1, p2)
 
     def test_determinism_after_load(

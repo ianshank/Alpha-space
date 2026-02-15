@@ -98,7 +98,7 @@ def _cmd_train(args: argparse.Namespace) -> None:
             record_shapes=True,
             profile_memory=True,
         )
-        profiler.__enter__()
+        profiler.__enter__()  # type: ignore[no-untyped-call]
 
     try:
         trainer = Trainer(config=config, resume_from=resume_path)
@@ -116,7 +116,7 @@ def _cmd_train(args: argparse.Namespace) -> None:
         raise
     finally:
         if profiler is not None:
-            profiler.__exit__(None, None, None)
+            profiler.__exit__(None, None, None)  # type: ignore[no-untyped-call]
 
 
 def _cmd_evaluate(args: argparse.Namespace) -> None:

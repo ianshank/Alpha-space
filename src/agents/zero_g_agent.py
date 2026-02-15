@@ -184,7 +184,7 @@ class ZeroGAgent:
 
         # Backward pass
         self._optimizer.zero_grad()
-        loss.backward()
+        loss.backward()  # type: ignore[no-untyped-call]
 
         # Gradient clipping
         nn.utils.clip_grad_norm_(self._network.parameters(), cfg.gradient_clip_norm)
@@ -297,7 +297,7 @@ class ZeroGAgent:
         info["skill_blend_alpha"] = alpha
         info["num_skills_used"] = float(len(skill_actions))
 
-        return blended_action
+        return blended_action  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------ #
     # Additional properties

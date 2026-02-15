@@ -174,9 +174,9 @@ class ReplayBuffer:
                 }
             )
 
-        table = pa.Table.from_pylist(records)
+        table = pa.Table.from_pylist(records)  # type: ignore[attr-defined]
         path = self._persist_dir / f"replay_{tag}_{self._total_added}.parquet"
-        pq.write_table(table, path, compression=_DEFAULT_PARQUET_COMPRESSION)
+        pq.write_table(table, path, compression=_DEFAULT_PARQUET_COMPRESSION)  # type: ignore[no-untyped-call]
         logger.info("replay_buffer_saved", path=str(path), size=len(self._buffer))
         return path
 

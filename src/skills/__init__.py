@@ -11,13 +11,13 @@ from src.skills.primitives import (
 from src.skills.registry import get_skill, list_skills, register_skill
 
 __all__ = [
-    "Skill",
-    "TranslateToGoalSkill",
     "AlignToGoalSkill",
-    "BrakeSkill",
-    "StationKeepSkill",
     "ApproachSkill",
-    "register_skill",
+    "BrakeSkill",
+    "Skill",
+    "StationKeepSkill",
+    "TranslateToGoalSkill",
     "get_skill",
     "list_skills",
+    "register_skill",
 ]

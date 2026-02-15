@@ -64,7 +64,7 @@ class RigidBodyState:
 
     def angular_momentum(self) -> np.ndarray:
         """Compute angular momentum ``L = I * ω`` (body frame)."""
-        return self.inertia * self.angular_velocity
+        return self.inertia * self.angular_velocity  # type: ignore[no-any-return]
 
     def kinetic_energy(self) -> float:
         """Compute total kinetic energy (translational + rotational)."""
@@ -186,11 +186,11 @@ class ZeroGDynamics:
         impulse_mag = np.linalg.norm(applied_impulse)
 
         threshold = max(self._momentum_tolerance * impulse_mag, _LINEAR_MOMENTUM_ABS_FLOOR)
-        if error > threshold:
+        if error > threshold:  # type: ignore[operator]
             logger.error(
                 "linear_momentum_violation",
                 error=float(error),
-                threshold=float(threshold),
+                threshold=float(threshold),  # type: ignore[arg-type]
                 delta_p=delta_p.tolist(),
                 impulse=applied_impulse.tolist(),
             )
@@ -213,11 +213,11 @@ class ZeroGDynamics:
         impulse_mag = np.linalg.norm(expected) + _ANGULAR_IMPULSE_NORM_EPS
 
         threshold = max(self._momentum_tolerance * impulse_mag, _ANGULAR_MOMENTUM_ABS_FLOOR)
-        if error > threshold:
+        if error > threshold:  # type: ignore[operator]
             logger.error(
                 "angular_momentum_violation",
                 error=float(error),
-                threshold=float(threshold),
+                threshold=float(threshold),  # type: ignore[arg-type]
             )
             raise PhysicsViolationError(
                 f"Angular momentum conservation violated: error={error:.6e}, "

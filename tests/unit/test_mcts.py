@@ -701,5 +701,5 @@ class TestDirichletNoise:
 
         # Priors should be unchanged
         final_priors = [child.prior for child in root.children.values()]
-        for init, final in zip(initial_priors, final_priors):
+        for init, final in zip(initial_priors, final_priors, strict=True):
             assert init == pytest.approx(final)

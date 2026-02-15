@@ -6,6 +6,7 @@ and read them back for visualization.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 from typing import Any
@@ -94,10 +95,8 @@ class MetricsStore:
             )
             # Clean up temp file if it exists
             if self._tmp_file.exists():
-                try:
+                with contextlib.suppress(Exception):
                     self._tmp_file.unlink()
-                except Exception:
-                    pass
             raise
 
     def read_all(self) -> dict[str, list[float]]:
@@ -129,7 +128,7 @@ class MetricsStore:
         # Pivot: gather all metric names
         all_keys: set[str] = set()
         for entry in entries:
-            all_keys.update(k for k in entry.keys() if k != "episode")
+            all_keys.update(k for k in entry if k != "episode")
 
         # Build the pivoted dict
         result: dict[str, list[float]] = {key: [] for key in all_keys}

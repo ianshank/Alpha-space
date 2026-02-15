@@ -5,6 +5,7 @@ Provides a dashboard with:
   - Live training metrics charts
   - Episode replay controls
 """
+# mypy: disable-error-code="attr-defined,no-untyped-call"
 
 from __future__ import annotations
 

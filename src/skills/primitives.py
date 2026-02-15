@@ -137,11 +137,7 @@ class AlignToGoalSkill(Skill):
             # For small angles, sin(angle/2) ≈ angle/2, so xyz/sin(angle/2) ≈ 2*xyz/angle
             # But for robustness, we use the full formula
             sin_half_angle = np.sin(angle / 2.0)
-            if abs(sin_half_angle) > 1e-6:
-                axis = xyz / sin_half_angle
-            else:
-                # Fallback: use xyz directly (close to aligned)
-                axis = xyz
+            axis = xyz / sin_half_angle if abs(sin_half_angle) > 1e-6 else xyz
 
             torque = axis * angle * self._gain
 
@@ -367,10 +363,7 @@ class ApproachSkill(Skill):
         else:
             xyz = q_error[1:4]
             sin_half_angle = np.sin(angle / 2.0)
-            if abs(sin_half_angle) > 1e-6:
-                axis = xyz / sin_half_angle
-            else:
-                axis = xyz
+            axis = xyz / sin_half_angle if abs(sin_half_angle) > 1e-6 else xyz
             align_torque = axis * angle * self._align_gain
 
         # Angular brake component (also increases when close)

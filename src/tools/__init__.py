@@ -13,14 +13,14 @@ from src.tools.sensors import (
 )
 
 __all__ = [
-    "Tool",
     "DistanceToGoalTool",
-    "OrientationErrorTool",
-    "VelocityMagnitudeTool",
     "DockingProgressTool",
-    "TrajectoryPlannerTool",
     "FuelEstimatorTool",
-    "register_tool",
+    "OrientationErrorTool",
+    "Tool",
+    "TrajectoryPlannerTool",
+    "VelocityMagnitudeTool",
     "get_tool",
     "list_tools",
+    "register_tool",
 ]

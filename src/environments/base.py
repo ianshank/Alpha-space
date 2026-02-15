@@ -19,7 +19,7 @@ from src.utils.common import quaternion_angular_distance
 logger = structlog.get_logger(__name__)
 
 
-class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ignore[misc]
+class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):
     """Abstract Gymnasium environment for zero-gravity docking tasks.
 
     Subclasses must implement :meth:`_sim_reset` and :meth:`_sim_step`.
@@ -34,7 +34,7 @@ class ZeroGEnv(gym.Env[dict[str, np.ndarray], np.ndarray], abc.ABC):  # type: ig
         ``[max_thrust, max_torque]`` internally.
     """
 
-    metadata: ClassVar[dict[str, Any]] = {"render_modes": ["human", "rgb_array"]}
+    metadata: ClassVar[dict[str, Any]] = {"render_modes": ["human", "rgb_array"]}  # type: ignore[misc]
 
     def __init__(
         self,
