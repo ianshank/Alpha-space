@@ -131,6 +131,22 @@ class VelocityMagnitudeTool(Tool):
 class DockingProgressTool(Tool):
     """Composite metric for docking progress using position and orientation errors."""
 
+    def __init__(
+        self,
+        position_tolerance: float = 0.1,
+        orientation_tolerance_deg: float = 5.0,
+    ) -> None:
+        """Initialize the docking progress tool.
+
+        Args:
+            position_tolerance: Distance threshold for exponential decay (m).
+            orientation_tolerance_deg: Angle threshold for exponential decay (deg).
+        """
+        self._position_tolerance = position_tolerance
+        self._orientation_tolerance_deg = orientation_tolerance_deg
+        self._distance_tool = DistanceToGoalTool()
+        self._orientation_tool = OrientationErrorTool()
+
     @property
     def name(self) -> str:
         return "DockingProgress"
@@ -140,27 +156,18 @@ class DockingProgressTool(Tool):
 
         Args:
             observation: Dict containing 'proprio' and 'goal' arrays.
-            **kwargs: Optional position_tolerance (default 0.1) and
-                     orientation_tolerance_deg (default 5.0).
 
         Returns:
             Progress score: 1.0 when perfectly docked, 0.0 when far away.
         """
-        position_tolerance: float = kwargs.get("position_tolerance", 0.1)  # type: ignore
-        orientation_tolerance_deg: float = kwargs.get("orientation_tolerance_deg", 5.0)  # type: ignore
-
-        # Get position and orientation errors
-        distance_tool = DistanceToGoalTool()
-        orientation_tool = OrientationErrorTool()
-
-        distance = distance_tool(observation)
-        angle_error = orientation_tool(observation)
+        distance = self._distance_tool(observation)
+        angle_error = self._orientation_tool(observation)
 
         # Exponential decay for each component
         # When distance = position_tolerance, position_score ≈ 0.37 (e^-1)
         # When angle_error = orientation_tolerance_deg, orientation_score ≈ 0.37
-        position_score = np.exp(-distance / position_tolerance)
-        orientation_score = np.exp(-angle_error / orientation_tolerance_deg)
+        position_score = np.exp(-distance / self._position_tolerance)
+        orientation_score = np.exp(-angle_error / self._orientation_tolerance_deg)
 
         # Combined score (geometric mean for balanced contribution)
         progress = float(np.sqrt(position_score * orientation_score))

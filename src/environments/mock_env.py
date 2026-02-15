@@ -168,15 +168,16 @@ class MockZeroGEnv(ZeroGEnv):
         )
 
     def _random_quaternion(self) -> np.ndarray:
-        """Sample a uniformly random unit quaternion."""
+        """Sample a uniformly random unit quaternion.
+
+        Uses the Shoemake uniform sampling method, reordered to the
+        Hamilton convention ``[w, x, y, z]`` used throughout this project.
+        """
         u = self._rng.random(3)
-        q = np.array(
-            [
-                np.sqrt(1 - u[0]) * np.sin(2 * np.pi * u[1]),
-                np.sqrt(1 - u[0]) * np.cos(2 * np.pi * u[1]),
-                np.sqrt(u[0]) * np.sin(2 * np.pi * u[2]),
-                np.sqrt(u[0]) * np.cos(2 * np.pi * u[2]),
-            ],
-            dtype=np.float64,
-        )
+        # Shoemake components (original order: x, y, z, w)
+        x = np.sqrt(1 - u[0]) * np.sin(2 * np.pi * u[1])
+        y = np.sqrt(1 - u[0]) * np.cos(2 * np.pi * u[1])
+        z = np.sqrt(u[0]) * np.sin(2 * np.pi * u[2])
+        w = np.sqrt(u[0]) * np.cos(2 * np.pi * u[2])
+        q = np.array([w, x, y, z], dtype=np.float64)
         return normalize_quaternion(q)

@@ -6,11 +6,25 @@ human-readable console output (development) and JSON output (production).
 
 from __future__ import annotations
 
+import atexit
 import logging
 import sys
 from pathlib import Path
+from typing import IO
 
 import structlog
+
+# Module-level reference so the file handle survives for the process lifetime
+# and can be cleaned up via atexit.
+_log_file_handle: IO[str] | None = None
+
+
+def _close_log_file() -> None:
+    """Close the log file handle on interpreter shutdown."""
+    global _log_file_handle
+    if _log_file_handle is not None:
+        _log_file_handle.close()
+        _log_file_handle = None
 
 
 def setup_logging(
@@ -30,6 +44,8 @@ def setup_logging(
         json_format: When ``True``, emit JSON-formatted log lines (useful in
             production / container environments).
     """
+    global _log_file_handle
+
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)
 
     shared_processors: list[structlog.types.Processor] = [
@@ -49,8 +65,10 @@ def setup_logging(
 
     if log_file is not None:
         log_file.parent.mkdir(parents=True, exist_ok=True)
+        _log_file_handle = log_file.open("a")
+        atexit.register(_close_log_file)
         factory: structlog.types.WrappedLogger = structlog.WriteLoggerFactory(
-            file=log_file.open("a"),
+            file=_log_file_handle,
         )
     else:
         factory = structlog.PrintLoggerFactory(file=sys.stdout)

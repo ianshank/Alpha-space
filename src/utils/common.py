@@ -251,6 +251,50 @@ def obs_to_tensors(
 
 
 # ---------------------------------------------------------------------------
+# Quaternion error to torque
+# ---------------------------------------------------------------------------
+
+
+def quaternion_error_torque(
+    current_quat: np.ndarray,
+    goal_quat: np.ndarray,
+    gain: float = 1.0,
+) -> np.ndarray:
+    """Compute proportional torque from quaternion orientation error.
+
+    Given the current and goal orientations as unit quaternions, compute the
+    error quaternion, extract the axis-angle representation, and return a
+    torque vector proportional to the rotation error.
+
+    Args:
+        current_quat: Current orientation quaternion ``[w, x, y, z]``.
+        goal_quat: Goal orientation quaternion ``[w, x, y, z]``.
+        gain: Proportional gain scaling the output torque.
+
+    Returns:
+        Torque vector of shape ``(3,)``.
+    """
+    cq = normalize_quaternion(current_quat)
+    gq = normalize_quaternion(goal_quat)
+
+    # Error quaternion: q_error = q_goal * conj(q_current)
+    cq_conj = cq * np.array([1, -1, -1, -1])
+    q_error = quaternion_multiply(gq, cq_conj)
+
+    w = np.clip(q_error[0], -1.0, 1.0)
+    angle = 2.0 * np.arccos(w)
+
+    if abs(angle) < 1e-6:
+        return np.zeros(3, dtype=np.float64)
+
+    xyz = q_error[1:4]
+    sin_half = np.sin(angle / 2.0)
+    axis = xyz / sin_half if abs(sin_half) > 1e-6 else xyz
+
+    return axis * angle * gain  # type: ignore[no-any-return]
+
+
+# ---------------------------------------------------------------------------
 # Action clamping
 # ---------------------------------------------------------------------------
 

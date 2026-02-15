@@ -262,6 +262,6 @@ class TestToolRegistry:
         assert isinstance(tool, FuelEstimatorTool)
 
     def test_unknown_tool_raises(self) -> None:
-        """Getting an unknown tool should raise KeyError."""
-        with pytest.raises(KeyError, match="Unknown tool"):
+        """Getting an unknown tool should raise ValueError."""
+        with pytest.raises(ValueError, match="Unknown tool"):
             get_tool("NonExistentTool")

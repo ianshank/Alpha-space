@@ -15,14 +15,6 @@ zerog-train = "src.main:main"
 [tool.setuptools.packages.find]
 include = ["src*"]
 
-[tool.black]
-line-length = 100
-target-version = ["py311"]
-
-[tool.isort]
-profile = "black"
-line_length = 100
-
 [tool.ruff]
 line-length = 100
 target-version = "py311"
@@ -45,7 +37,6 @@ module = [
     "plotly.*",
     "gradio.*",
     "structlog.*",
-    "scipy.*",
     "hypothesis.*",
     "pyarrow.*",
     "numpy.*",
@@ -61,4 +52,3 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
-asyncio_mode = "auto"

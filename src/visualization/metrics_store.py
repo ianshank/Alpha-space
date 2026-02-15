@@ -40,15 +40,15 @@ class MetricsStore:
         Args:
             log_dir: Directory for storing metrics.json.
         """
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.metrics_file = self.log_dir / "metrics.json"
-        self._tmp_file = self.log_dir / "metrics.json.tmp"
+        self._log_dir = Path(log_dir)
+        self._log_dir.mkdir(parents=True, exist_ok=True)
+        self._metrics_file = self._log_dir / "metrics.json"
+        self._tmp_file = self._log_dir / "metrics.json.tmp"
 
         logger.info(
             "metrics_store_initialized",
-            log_dir=str(self.log_dir),
-            metrics_file=str(self.metrics_file),
+            log_dir=str(self._log_dir),
+            metrics_file=str(self._metrics_file),
         )
 
     def append(self, episode: int, metrics: dict[str, float]) -> None:
@@ -75,10 +75,9 @@ class MetricsStore:
                 json.dumps(entries, indent=2),
                 encoding="utf-8",
             )
-            # Replace atomically (on Windows, need to remove first)
-            if self.metrics_file.exists():
-                self.metrics_file.unlink()
-            self._tmp_file.rename(self.metrics_file)
+            # Atomic replace (works cross-platform; on POSIX this is a
+            # single rename(2) syscall, on Windows it handles the remove).
+            self._tmp_file.replace(self._metrics_file)
 
             logger.debug(
                 "metrics_appended",
@@ -153,11 +152,11 @@ class MetricsStore:
             List of dictionaries, one per episode. Returns empty list if
             the file doesn't exist or is corrupt.
         """
-        if not self.metrics_file.exists():
+        if not self._metrics_file.exists():
             return []
 
         try:
-            content = self.metrics_file.read_text(encoding="utf-8")
+            content = self._metrics_file.read_text(encoding="utf-8")
             entries = json.loads(content)
 
             if not isinstance(entries, list):
@@ -174,14 +173,14 @@ class MetricsStore:
             logger.warning(
                 "metrics_file_corrupt",
                 error=str(e),
-                file=str(self.metrics_file),
+                file=str(self._metrics_file),
             )
             return []
         except Exception as e:
             logger.error(
                 "failed_to_read_metrics",
                 error=str(e),
-                file=str(self.metrics_file),
+                file=str(self._metrics_file),
                 exc_info=True,
             )
             return []

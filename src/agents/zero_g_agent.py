@@ -21,30 +21,11 @@ import torch.nn as nn
 from src.config import SystemConfig
 from src.mcts.engine import MCTSEngine
 from src.networks.policy_value_net import SpatialPolicyValueNetwork
+from src.skills.base import Skill
 from src.training.trainer import NetworkPredictor
-from src.utils.common import get_device
+from src.utils.common import get_device, obs_to_tensors
 
 logger = structlog.get_logger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Skill protocol (structural typing)
-# ---------------------------------------------------------------------------
-
-
-class SkillProtocol:
-    """Protocol for skill-based policies that can be blended with the NN policy."""
-
-    def compute_action(self, observation: dict[str, np.ndarray]) -> np.ndarray:
-        """Compute action from observation.
-
-        Args:
-            observation: Dict with keys ``voxels``, ``proprio``, ``goal``.
-
-        Returns:
-            Action array of shape ``(action_dim,)``.
-        """
-        raise NotImplementedError
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +52,7 @@ class ZeroGAgent:
         self,
         config: SystemConfig,
         device: torch.device | None = None,
-        skills: list[SkillProtocol] | None = None,
+        skills: list[Skill] | None = None,
         skill_blend_alpha: float = 0.0,
     ) -> None:
         self._config = config
@@ -247,8 +228,7 @@ class ZeroGAgent:
         """
         self._network.eval()
         with torch.no_grad():
-            voxels = torch.from_numpy(observation["voxels"]).unsqueeze(0).float().to(self._device)
-            proprio = torch.from_numpy(observation["proprio"]).unsqueeze(0).float().to(self._device)
+            voxels, proprio = obs_to_tensors(observation, self._device)
             actions, _, _ = self._network.act(voxels, proprio, deterministic=deterministic)
             action = actions.squeeze(0).cpu().numpy()
         return action

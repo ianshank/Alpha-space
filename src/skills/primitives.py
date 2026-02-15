@@ -7,7 +7,7 @@ import structlog
 
 from src.skills.base import Skill
 from src.skills.registry import register_skill
-from src.utils.common import clamp_actions, normalize_quaternion, quaternion_multiply
+from src.utils.common import clamp_actions, quaternion_error_torque
 
 logger = structlog.get_logger(__name__)
 
@@ -106,40 +106,7 @@ class AlignToGoalSkill(Skill):
         proprio = observation["proprio"]
         goal = observation["goal"]
 
-        current_quat = proprio[3:7]
-        goal_quat = goal[3:7]
-
-        # Normalize quaternions
-        current_quat = normalize_quaternion(current_quat)
-        goal_quat = normalize_quaternion(goal_quat)
-
-        # Compute quaternion error: q_error = q_goal * conj(q_current)
-        # Conjugate is [w, -x, -y, -z]
-        current_quat_conj = current_quat * np.array([1, -1, -1, -1])
-        q_error = quaternion_multiply(goal_quat, current_quat_conj)
-
-        # Extract axis-angle representation
-        # For unit quaternion [w, x, y, z], angle = 2*arccos(w), axis = [x,y,z]/sin(angle/2)
-        w = q_error[0]
-        xyz = q_error[1:4]
-
-        # Clamp w to valid range for arccos
-        w = np.clip(w, -1.0, 1.0)
-        angle = 2.0 * np.arccos(w)
-
-        # Compute torque
-        if abs(angle) < 1e-6:
-            # Already aligned, no torque needed
-            logger.debug("align_at_goal", angle=angle)
-            torque = np.zeros(3, dtype=np.float64)
-        else:
-            # Axis-angle torque: proportional to rotation axis scaled by angle
-            # For small angles, sin(angle/2) ≈ angle/2, so xyz/sin(angle/2) ≈ 2*xyz/angle
-            # But for robustness, we use the full formula
-            sin_half_angle = np.sin(angle / 2.0)
-            axis = xyz / sin_half_angle if abs(sin_half_angle) > 1e-6 else xyz
-
-            torque = axis * angle * self._gain
+        torque = quaternion_error_torque(proprio[3:7], goal[3:7], gain=self._gain)
 
         # Zero thrust
         thrust = np.zeros(3, dtype=np.float64)
@@ -148,7 +115,7 @@ class AlignToGoalSkill(Skill):
         action = np.concatenate([thrust, torque])
         action = clamp_actions(action, -1.0, 1.0)
 
-        logger.debug("align_action", angle=angle, torque_norm=np.linalg.norm(torque))
+        logger.debug("align_action", torque_norm=float(np.linalg.norm(torque)))
         return action
 
 
@@ -349,22 +316,7 @@ class ApproachSkill(Skill):
         thrust = translate_thrust + brake_thrust
 
         # Alignment torque (always active)
-        current_quat = normalize_quaternion(current_quat)
-        goal_quat = normalize_quaternion(goal_quat)
-
-        current_quat_conj = current_quat * np.array([1, -1, -1, -1])
-        q_error = quaternion_multiply(goal_quat, current_quat_conj)
-
-        w = np.clip(q_error[0], -1.0, 1.0)
-        angle = 2.0 * np.arccos(w)
-
-        if abs(angle) < 1e-6:
-            align_torque = np.zeros(3, dtype=np.float64)
-        else:
-            xyz = q_error[1:4]
-            sin_half_angle = np.sin(angle / 2.0)
-            axis = xyz / sin_half_angle if abs(sin_half_angle) > 1e-6 else xyz
-            align_torque = axis * angle * self._align_gain
+        align_torque = quaternion_error_torque(current_quat, goal_quat, gain=self._align_gain)
 
         # Angular brake component (also increases when close)
         brake_torque = -self._brake_gain * brake_blend * angular_vel
@@ -380,6 +332,6 @@ class ApproachSkill(Skill):
             "approach_action",
             distance=distance,
             brake_blend=brake_blend,
-            angle=angle,
+            torque_norm=float(np.linalg.norm(align_torque)),
         )
         return action

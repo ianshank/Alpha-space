@@ -22,9 +22,9 @@ class TrajectoryPlannerTool(Tool):
             max_thrust: Maximum thrust force in Newtons.
             spacecraft_mass: Spacecraft mass in kilograms.
         """
-        self.max_thrust = max_thrust
-        self.spacecraft_mass = spacecraft_mass
-        self.max_acceleration = max_thrust / spacecraft_mass
+        self._max_thrust = max_thrust
+        self._spacecraft_mass = spacecraft_mass
+        self._max_acceleration = max_thrust / spacecraft_mass
 
     @property
     def name(self) -> str:
@@ -51,7 +51,7 @@ class TrajectoryPlannerTool(Tool):
         # Assumes accelerate halfway, decelerate halfway
         # d = a*t^2 => t = sqrt(d/a)
         if distance > 1e-6:
-            estimated_time = float(np.sqrt(2 * distance / self.max_acceleration))
+            estimated_time = float(np.sqrt(2 * distance / self._max_acceleration))
         else:
             estimated_time = 0.0
 
@@ -61,7 +61,7 @@ class TrajectoryPlannerTool(Tool):
             goal_position=goal_position.tolist(),
             distance=distance,
             estimated_time=estimated_time,
-            max_acceleration=self.max_acceleration,
+            max_acceleration=self._max_acceleration,
         )
 
         return {"distance": distance, "estimated_time": estimated_time}
@@ -77,7 +77,7 @@ class FuelEstimatorTool(Tool):
         Args:
             angular_scale: Scaling factor for angular velocity contribution.
         """
-        self.angular_scale = angular_scale
+        self._angular_scale = angular_scale
 
     @property
     def name(self) -> str:
@@ -98,7 +98,7 @@ class FuelEstimatorTool(Tool):
         angular_vel = proprio[10:13]
 
         linear_dv = float(np.linalg.norm(linear_vel))
-        angular_dv = float(np.linalg.norm(angular_vel) * self.angular_scale)
+        angular_dv = float(np.linalg.norm(angular_vel) * self._angular_scale)
 
         total_dv = linear_dv + angular_dv
 

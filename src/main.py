@@ -71,6 +71,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _cmd_train(args: argparse.Namespace) -> None:
     """Execute the ``train`` subcommand."""
+    import contextlib
+
     overrides: dict[str, object] = {}
     if args.episodes is not None:
         overrides["training.num_episodes"] = args.episodes
@@ -85,38 +87,36 @@ def _cmd_train(args: argparse.Namespace) -> None:
 
     resume_path = Path(args.resume) if args.resume else None
 
-    profiler = None
-    if args.profile:
-        import torch
+    # Use ExitStack for safe context-manager handling of the optional profiler.
+    with contextlib.ExitStack() as stack:
+        if args.profile:
+            import torch
 
-        profiler = torch.profiler.profile(
-            activities=[
-                torch.profiler.ProfilerActivity.CPU,
-                torch.profiler.ProfilerActivity.CUDA,
-            ],
-            on_trace_ready=torch.profiler.tensorboard_trace_handler("./profiler_logs"),
-            record_shapes=True,
-            profile_memory=True,
-        )
-        profiler.__enter__()  # type: ignore[no-untyped-call]
+            profiler = torch.profiler.profile(
+                activities=[
+                    torch.profiler.ProfilerActivity.CPU,
+                    torch.profiler.ProfilerActivity.CUDA,
+                ],
+                on_trace_ready=torch.profiler.tensorboard_trace_handler("./profiler_logs"),
+                record_shapes=True,
+                profile_memory=True,
+            )
+            stack.enter_context(profiler)
 
-    try:
-        trainer = Trainer(config=config, resume_from=resume_path)
-        summary = trainer.train()
-        logger.info("training_summary", **summary)
-    except KeyboardInterrupt:
-        logger.info("training_interrupted_by_user")
-        raise
-    except (FileNotFoundError, ValueError, RuntimeError):
-        logger.exception("training_failed")
-        if args.pdb_on_error:
-            import pdb
+        try:
+            trainer = Trainer(config=config, resume_from=resume_path)
+            summary = trainer.train()
+            logger.info("training_summary", **summary)
+        except KeyboardInterrupt:
+            logger.info("training_interrupted_by_user")
+            raise
+        except (FileNotFoundError, ValueError, RuntimeError):
+            logger.exception("training_failed")
+            if args.pdb_on_error:
+                import pdb
 
-            pdb.post_mortem()
-        raise
-    finally:
-        if profiler is not None:
-            profiler.__exit__(None, None, None)  # type: ignore[no-untyped-call]
+                pdb.post_mortem()
+            raise
 
 
 def _cmd_evaluate(args: argparse.Namespace) -> None:

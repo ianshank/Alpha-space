@@ -16,6 +16,7 @@ class AgentProtocol(Protocol):
         *,
         use_mcts: bool = True,
         deterministic: bool = False,
+        use_skills: bool = False,
     ) -> tuple[np.ndarray, dict[str, float]]:
         """Select an action given an observation.
 
@@ -23,6 +24,7 @@ class AgentProtocol(Protocol):
             observation: Dict with keys ``voxels``, ``proprio``, ``goal``.
             use_mcts: Whether to use MCTS search.
             deterministic: If True, use greedy action selection.
+            use_skills: If True, blend skill actions with NN actions.
 
         Returns:
             ``(action, info)`` tuple.
